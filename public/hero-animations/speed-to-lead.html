@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI Data House — Premium Lead Automation Hero Workflow</title>
+<style>
+  :root{
+    --ink:#0d1117;
+    --ink-2:#303844;
+    --muted:#66707c;
+    --line:#dce2e8;
+    --line-strong:#cbd3dc;
+    --surface:#ffffff;
+    --surface-soft:#f8fafb;
+
+    --facebook:#1877f2;
+    --form:#6758d9;
+    --ghl:#13966b;
+    --n8n:#ea4b35;
+    --vapi:#5b54de;
+    --logic:#243143;
+    --calendar:#2871d8;
+    --email:#c94141;
+    --success:#158a5b;
+  }
+
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;
+    background:transparent;
+    color:var(--ink);
+    font-family:Inter,Geist,"SF Pro Display","SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  body{
+    min-height:100vh;
+    display:grid;
+    place-items:center;
+    padding:24px;
+  }
+
+  .workflow{
+    width:min(92vw,780px);
+    aspect-ratio:1;
+    container-type:inline-size;
+    position:relative;
+    overflow:hidden;
+    isolation:isolate;
+    border:1px solid #e1e6eb;
+    border-radius:30px;
+    background:
+      radial-gradient(56% 44% at 50% 7%,rgba(239,245,255,.72),rgba(255,255,255,0) 70%),
+      #fff;
+    box-shadow:
+      0 28px 74px rgba(24,32,44,.08),
+      0 8px 24px rgba(24,32,44,.045),
+      inset 0 1px 0 rgba(255,255,255,1);
+  }
+
+  .workflow::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:-3;
+    pointer-events:none;
+    background-image:radial-gradient(circle at center,rgba(44,58,74,.19) .72px,transparent .82px);
+    background-size:18px 18px;
+    opacity:.22;
+    mask-image:linear-gradient(to bottom,rgba(0,0,0,.76),rgba(0,0,0,.12) 88%,transparent);
+  }
+  .workflow::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:-2;
+    pointer-events:none;
+    background:
+      linear-gradient(90deg,transparent 0 7%,rgba(255,255,255,.72) 7% 93%,transparent 93%),
+      linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.74));
+  }
+
+  .topline{
+    position:absolute;
+    left:5.1%;
+    right:5.1%;
+    top:3.6%;
+    height:5.4%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    z-index:8;
+  }
+  .eyebrow{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:clamp(8px,1.35cqi,10px);
+    line-height:1;
+    font-weight:760;
+    letter-spacing:.105em;
+    text-transform:uppercase;
+    color:#505b67;
+  }
+  .eyebrow::before{
+    content:"";
+    width:16px;
+    height:2px;
+    border-radius:999px;
+    background:#111827;
+  }
+  .status{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    padding:7px 10px;
+    border:1px solid #dde4e9;
+    border-radius:999px;
+    background:rgba(255,255,255,.92);
+    color:#3f4954;
+    font-size:clamp(8px,1.35cqi,10px);
+    font-weight:680;
+    box-shadow:0 2px 8px rgba(25,34,45,.035);
+  }
+  .status-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:#35b77d;
+    box-shadow:0 0 0 3px rgba(53,183,125,.12);
+  }
+
+  .stage{
+    position:absolute;
+    left:5%;
+    right:5%;
+    height:26.4%;
+    border:1px solid #e6ebef;
+    border-radius:20px;
+    background:rgba(255,255,255,.72);
+    z-index:0;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.9);
+  }
+  .stage.s1{top:10.4%}
+  .stage.s2{top:38.4%}
+  .stage.s3{top:66.4%}
+  .stage::after{
+    content:"";
+    position:absolute;
+    left:0;
+    top:17%;
+    bottom:17%;
+    width:2px;
+    border-radius:3px;
+    background:var(--stage-accent,#111827);
+    opacity:.72;
+  }
+  .stage.s1{--stage-accent:#1877f2}
+  .stage.s2{--stage-accent:#5b54de}
+  .stage.s3{--stage-accent:#13966b}
+
+  .stage-label{
+    position:absolute;
+    left:7.2%;
+    z-index:7;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    color:#404b57;
+    font-size:clamp(7.5px,1.18cqi,9px);
+    font-weight:760;
+    letter-spacing:.095em;
+    text-transform:uppercase;
+  }
+  .stage-label::before{
+    content:"";
+    width:5px;height:5px;border-radius:2px;
+    background:var(--stage-accent);
+  }
+  .stage-label.l1{top:12.2%;--stage-accent:#1877f2}
+  .stage-label.l2{top:40.2%;--stage-accent:#5b54de}
+  .stage-label.l3{top:68.2%;--stage-accent:#13966b}
+
+  svg.connectors{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:2;
+    overflow:visible;
+    pointer-events:none;
+  }
+  .wire{
+    fill:none;
+    stroke:#d3dae2;
+    stroke-width:1.15;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    vector-effect:non-scaling-stroke;
+  }
+  .wire.secondary{
+    stroke:#dbe1e7;
+    stroke-dasharray:2.5 4.6;
+    opacity:.66;
+  }
+  .endpoint{
+    fill:#fff;
+    stroke:#cbd4de;
+    stroke-width:1.05;
+    vector-effect:non-scaling-stroke;
+  }
+  .flow{
+    fill:none;
+    stroke:var(--route-color,#111827);
+    stroke-width:2.15;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    vector-effect:non-scaling-stroke;
+    opacity:0;
+    filter:drop-shadow(0 1px 3px rgba(18,31,46,.13));
+  }
+  .flow.on{opacity:1}
+
+  .node{
+    --brand:#273244;
+    --brand-rgb:39,50,68;
+    position:absolute;
+    z-index:5;
+    width:18.75%;
+    height:10.4%;
+    padding:9px 9px 9px 39px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:flex-start;
+    border:1px solid #dce3e9;
+    border-radius:15px;
+    background:rgba(255,255,255,.985);
+    box-shadow:
+      0 6px 16px rgba(24,32,44,.045),
+      0 1px 2px rgba(24,32,44,.035),
+      inset 0 1px 0 rgba(255,255,255,.96);
+    transition:
+      transform .42s cubic-bezier(.22,.8,.22,1),
+      border-color .42s ease,
+      box-shadow .42s ease,
+      background-color .42s ease;
+  }
+  .node::before{
+    content:"";
+    position:absolute;
+    left:13px;
+    top:7px;
+    width:18px;
+    height:2px;
+    border-radius:999px;
+    background:var(--brand);
+    opacity:.42;
+    transition:opacity .35s ease,transform .35s ease;
+    transform-origin:left center;
+    transform:scaleX(.55);
+  }
+  .node::after{
+    content:"";
+    position:absolute;
+    right:8px;
+    top:8px;
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:#cdd5dc;
+    box-shadow:0 0 0 0 rgba(21,138,91,0);
+    transition:.35s ease;
+  }
+
+  .node .icon{
+    position:absolute;
+    left:10px;
+    top:50%;
+    transform:translateY(-50%);
+    width:24px;
+    height:24px;
+    border-radius:8px;
+    display:grid;
+    place-items:center;
+    color:var(--brand);
+    background:rgba(var(--brand-rgb),.075);
+    border:1px solid rgba(var(--brand-rgb),.10);
+    transition:.4s cubic-bezier(.22,.8,.22,1);
+  }
+  .node .icon svg{
+    width:16px;
+    height:16px;
+    display:block;
+  }
+  .node .icon svg.fill{fill:currentColor;stroke:none}
+  .node .title{
+    max-width:100%;
+    color:#111820;
+    font-size:clamp(8.6px,1.54cqi,11.6px);
+    line-height:1.16;
+    font-weight:735;
+    letter-spacing:-.018em;
+    text-wrap:balance;
+  }
+  .node .sub{
+    max-width:100%;
+    margin-top:3px;
+    color:#65717d;
+    font-size:clamp(7px,1.23cqi,9.2px);
+    line-height:1.12;
+    font-weight:535;
+    letter-spacing:-.006em;
+    white-space:nowrap;
+  }
+
+  .node.active{
+    transform:translateY(-2px);
+    border-color:rgba(var(--brand-rgb),.38);
+    background:linear-gradient(180deg,rgba(var(--brand-rgb),.037),#fff 72%);
+    box-shadow:
+      0 11px 25px rgba(24,32,44,.075),
+      0 3px 8px rgba(24,32,44,.05),
+      0 0 0 3px rgba(var(--brand-rgb),.052),
+      inset 0 1px 0 rgba(255,255,255,.98);
+  }
+  .node.active::before{opacity:.95;transform:scaleX(1)}
+  .node.active::after{
+    background:#21a36e;
+    box-shadow:0 0 0 4px rgba(33,163,110,.11);
+  }
+  .node.active .icon{
+    transform:translateY(-50%) scale(1.045);
+    background:rgba(var(--brand-rgb),.105);
+    border-color:rgba(var(--brand-rgb),.18);
+    box-shadow:0 3px 8px rgba(var(--brand-rgb),.09);
+  }
+
+  .fb{--brand:var(--facebook);--brand-rgb:24,119,242}
+  .form{--brand:var(--form);--brand-rgb:103,88,217}
+  .ghl{--brand:var(--ghl);--brand-rgb:19,150,107}
+  .n8n{--brand:var(--n8n);--brand-rgb:234,75,53}
+  .vapi{--brand:var(--vapi);--brand-rgb:91,84,222}
+  .logic{--brand:var(--logic);--brand-rgb:36,49,67}
+  .calendar{--brand:var(--calendar);--brand-rgb:40,113,216}
+  .mail{--brand:var(--email);--brand-rgb:201,65,65}
+
+  /* Original 4-4-4 composition preserved exactly; refinement is visual, not structural. */
+  #fb{left:7.6%;top:18.35%}
+  #form{left:29.6%;top:18.35%}
+  #ghl{left:51.6%;top:18.35%}
+  #n8n{left:73.6%;top:18.35%}
+
+  #contact{left:7.6%;top:46.35%}
+  #vars{left:29.6%;top:46.35%}
+  #call{left:51.6%;top:46.35%}
+  #route{left:73.6%;top:46.35%}
+
+  #slots{left:7.6%;top:74.35%}
+  #booking{left:29.6%;top:74.35%}
+  #notes{left:51.6%;top:74.35%}
+  #emails{left:73.6%;top:74.35%}
+
+  .chip{
+    --chip:#273244;
+    position:absolute;
+    z-index:9;
+    padding:5px 7px;
+    border:1px solid #dce3e9;
+    border-radius:999px;
+    background:rgba(255,255,255,.97);
+    color:#35404b;
+    font-size:clamp(6.8px,1.13cqi,8.5px);
+    line-height:1;
+    font-weight:700;
+    box-shadow:0 5px 14px rgba(25,34,45,.06);
+    opacity:0;
+    transform:translateY(4px) scale(.97);
+    transition:.34s cubic-bezier(.22,.8,.22,1);
+    white-space:nowrap;
+  }
+  .chip::before{
+    content:"";
+    display:inline-block;
+    width:5px;height:5px;
+    margin-right:5px;
+    vertical-align:1px;
+    border-radius:50%;
+    background:var(--chip);
+  }
+  .chip.show{opacity:1;transform:translateY(0) scale(1)}
+  #chipLead{left:55%;top:14.2%;--chip:#13966b}
+  #chipCall{left:33.1%;top:42.1%;--chip:#5b54de}
+  #chipSlots{left:10.6%;top:70.15%;--chip:#2871d8}
+  #chipBook{left:32.8%;top:70.15%;--chip:#158a5b}
+  #chipNote{left:54.5%;top:70.15%;--chip:#13966b}
+  #chipMail{left:77.1%;top:70.15%;--chip:#c94141}
+
+  .mini-stack{
+    position:absolute;
+    right:8px;
+    bottom:7px;
+    display:flex;
+    gap:2px;
+    opacity:.7;
+  }
+  .mini-stack span{
+    width:6px;height:4px;border-radius:1.5px;background:rgba(var(--brand-rgb),.15);
+    transform-origin:left center;
+  }
+  .node.active .mini-stack span:nth-child(1){animation:rowIn .42s .03s both}
+  .node.active .mini-stack span:nth-child(2){animation:rowIn .42s .12s both}
+  .node.active .mini-stack span:nth-child(3){animation:rowIn .42s .21s both}
+  @keyframes rowIn{
+    from{transform:scaleX(.25);opacity:.2}
+    to{transform:scaleX(1);opacity:1}
+  }
+
+  .runner{
+    --runner-color:#111827;
+    position:absolute;
+    z-index:10;
+    left:0;
+    top:0;
+    width:13px;
+    height:5px;
+    border-radius:999px;
+    pointer-events:none;
+    opacity:0;
+    transform-origin:center;
+    background:
+      linear-gradient(90deg,rgba(255,255,255,.98) 0 12%,var(--runner-color) 35% 100%);
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,.96),
+      0 3px 9px rgba(25,34,45,.20);
+    will-change:left,top,transform,opacity;
+  }
+  .runner.show{opacity:1}
+
+  .caption{
+    position:absolute;
+    left:7%;
+    right:7%;
+    bottom:2.05%;
+    z-index:7;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:14px;
+    color:#5e6873;
+    font-size:clamp(6.8px,1.16cqi,8.8px);
+    line-height:1;
+    font-weight:575;
+  }
+  .caption strong{
+    color:#222b35;
+    font-weight:720;
+  }
+
+  @media (max-width:620px){
+    body{padding:8px}
+    .workflow{width:96vw;border-radius:22px}
+    .topline{top:3%}
+    .node{
+      height:10.9%;
+      padding:6px 5px 6px 27px;
+      border-radius:11px;
+    }
+    .node .icon{
+      left:6px;
+      width:17px;height:17px;border-radius:6px;
+    }
+    .node .icon svg{width:12px;height:12px}
+    .node::before{left:7px;top:5px;width:12px}
+    .node::after{right:5px;top:5px;width:4px;height:4px}
+    .node .title{font-size:7.3px}
+    .node .sub{font-size:5.9px;margin-top:2px}
+    .stage-label{font-size:6.2px}
+    .eyebrow,.status{font-size:6.5px}
+    .status{padding:5px 7px}
+    .status-dot{width:5px;height:5px}
+    .chip{font-size:5.6px;padding:4px 5px}
+    .caption{font-size:5.7px}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .runner,.chip{display:none!important}
+    .node,.node .icon{transition:none!important}
+    .node.active{transform:none}
+  }
+</style>
+</head>
+
+<body>
+<div class="workflow" id="workflow" aria-label="Automated lead journey from Facebook through GoHighLevel and n8n to Vapi calling, calendar booking, CRM notes and email notifications">
+  <div class="topline">
+    <div class="eyebrow">Automated lead journey</div>
+    <div class="status"><span class="status-dot"></span>Live workflow</div>
+  </div>
+
+  <div class="stage s1"></div>
+  <div class="stage s2"></div>
+  <div class="stage s3"></div>
+  <div class="stage-label l1">01 &middot; Capture &amp; CRM</div>
+  <div class="stage-label l2">02 &middot; Calling &amp; Routing</div>
+  <div class="stage-label l3">03 &middot; Calendar, Record &amp; Notify</div>
+
+  <svg class="connectors" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <!-- neutral route network -->
+    <path class="wire" d="M26.35 23.55 H29.6"/>
+    <path class="wire" d="M48.35 23.55 H51.6"/>
+    <path class="wire" d="M70.35 23.55 H73.6"/>
+
+    <!-- Stage transition 1: routed through the clean inter-stage gutter -->
+    <path class="wire" d="M82.975 28.75 V34.35 Q82.975 35.75 81.575 35.75 H18.375 Q16.975 35.75 16.975 37.15 V46.35"/>
+
+    <path class="wire" d="M26.35 51.55 H29.6"/>
+    <path class="wire" d="M48.35 51.55 H51.6"/>
+    <path class="wire" d="M70.35 51.55 H73.6"/>
+
+    <!-- Stage transition 2: same controlled gutter treatment -->
+    <path class="wire" d="M82.975 56.75 V62.35 Q82.975 63.75 81.575 63.75 H18.375 Q16.975 63.75 16.975 65.15 V74.35"/>
+
+    <path class="wire" d="M26.35 79.55 H29.6"/>
+    <path class="wire" d="M48.35 79.55 H51.6"/>
+    <path class="wire" d="M70.35 79.55 H73.6"/>
+
+    <!-- End-of-call data recording path -->
+    <path class="wire" d="M60.975 56.75 V74.35"/>
+
+    <!-- Existing secondary sync relationship, kept quiet -->
+    <path class="wire secondary" d="M38.975 84.75 V87.1 Q38.975 89.0 40.875 89.0 H81.075 Q82.975 89.0 82.975 87.1 V84.75"/>
+
+    <!-- endpoint details -->
+    <circle class="endpoint" cx="26.35" cy="23.55" r=".42"/><circle class="endpoint" cx="29.6" cy="23.55" r=".42"/>
+    <circle class="endpoint" cx="48.35" cy="23.55" r=".42"/><circle class="endpoint" cx="51.6" cy="23.55" r=".42"/>
+    <circle class="endpoint" cx="70.35" cy="23.55" r=".42"/><circle class="endpoint" cx="73.6" cy="23.55" r=".42"/>
+    <circle class="endpoint" cx="82.975" cy="28.75" r=".42"/><circle class="endpoint" cx="16.975" cy="46.35" r=".42"/>
+    <circle class="endpoint" cx="26.35" cy="51.55" r=".42"/><circle class="endpoint" cx="29.6" cy="51.55" r=".42"/>
+    <circle class="endpoint" cx="48.35" cy="51.55" r=".42"/><circle class="endpoint" cx="51.6" cy="51.55" r=".42"/>
+    <circle class="endpoint" cx="70.35" cy="51.55" r=".42"/><circle class="endpoint" cx="73.6" cy="51.55" r=".42"/>
+    <circle class="endpoint" cx="82.975" cy="56.75" r=".42"/><circle class="endpoint" cx="16.975" cy="74.35" r=".42"/>
+    <circle class="endpoint" cx="26.35" cy="79.55" r=".42"/><circle class="endpoint" cx="29.6" cy="79.55" r=".42"/>
+    <circle class="endpoint" cx="48.35" cy="79.55" r=".42"/><circle class="endpoint" cx="51.6" cy="79.55" r=".42"/>
+    <circle class="endpoint" cx="70.35" cy="79.55" r=".42"/><circle class="endpoint" cx="73.6" cy="79.55" r=".42"/>
+
+    <!-- animated overlays; exact same sequence -->
+    <path id="p1" class="flow" data-color="#1877f2" d="M26.35 23.55 H29.6"/>
+    <path id="p2" class="flow" data-color="#13966b" d="M48.35 23.55 H51.6"/>
+    <path id="p3" class="flow" data-color="#ea4b35" d="M70.35 23.55 H73.6"/>
+    <path id="p4" class="flow" data-color="#13966b" d="M82.975 28.75 V34.35 Q82.975 35.75 81.575 35.75 H18.375 Q16.975 35.75 16.975 37.15 V46.35"/>
+    <path id="p5" class="flow" data-color="#243143" d="M26.35 51.55 H29.6"/>
+    <path id="p6" class="flow" data-color="#5b54de" d="M48.35 51.55 H51.6"/>
+    <path id="p7" class="flow" data-color="#ea4b35" d="M70.35 51.55 H73.6"/>
+    <path id="p8" class="flow" data-color="#2871d8" d="M82.975 56.75 V62.35 Q82.975 63.75 81.575 63.75 H18.375 Q16.975 63.75 16.975 65.15 V74.35"/>
+    <path id="p9" class="flow" data-color="#158a5b" d="M26.35 79.55 H29.6"/>
+    <path id="p10" class="flow" data-color="#13966b" d="M60.975 56.75 V74.35"/>
+    <path id="p11" class="flow" data-color="#13966b" d="M48.35 79.55 H51.6"/>
+    <path id="p12" class="flow" data-color="#c94141" d="M70.35 79.55 H73.6"/>
+  </svg>
+
+  <div class="node fb" id="fb">
+    <div class="icon">
+      <svg class="fill" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M13.8 21v-8h2.7l.4-3.1h-3.1v-2c0-.9.25-1.5 1.55-1.5H17V3.6c-.29-.04-1.29-.12-2.45-.12-2.42 0-4.08 1.48-4.08 4.2v2.21H7.73V13h2.74v8h3.33Z"/>
+      </svg>
+    </div>
+    <div class="title">Facebook Ad</div>
+    <div class="sub">Lead clicks</div>
+  </div>
+
+  <div class="node form" id="form">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="5" y="3.5" width="14" height="17" rx="2.3"/>
+        <path d="M8.2 8.2h7.6M8.2 12h7.6M8.2 15.8h4.6"/>
+      </svg>
+    </div>
+    <div class="title">Lead Form</div>
+    <div class="sub">Details submitted</div>
+  </div>
+
+  <div class="node ghl" id="ghl">
+    <div class="icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7.2 7.5a5.8 5.8 0 1 0 0 9"/>
+        <path d="M16.8 7.5a5.8 5.8 0 1 1 0 9"/>
+        <path d="M8.5 12h7"/>
+      </svg>
+    </div>
+    <div class="title">GoHighLevel</div>
+    <div class="sub">Contact created</div>
+    <div class="mini-stack"><span></span><span></span><span></span></div>
+  </div>
+
+  <div class="node n8n" id="n8n">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="5" cy="7" r="2.2"/><circle cx="18.8" cy="6.4" r="2.2"/><circle cx="12.1" cy="17.3" r="2.2"/>
+        <path d="M7.1 7.5 10.8 15M16.8 7.8l-3.6 7.4M7.2 6.7l9.4-.2"/>
+      </svg>
+    </div>
+    <div class="title">n8n Trigger</div>
+    <div class="sub">Automation starts</div>
+  </div>
+
+  <div class="node n8n" id="route">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 5.5h5v5M19 18.5h-5v-5"/>
+        <path d="m10 5.5-5 5 5 5M14 8.5l5 5-5 5"/>
+      </svg>
+    </div>
+    <div class="title">Route Vapi Tool</div>
+    <div class="sub">Availability / booking</div>
+  </div>
+
+  <div class="node vapi" id="call">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M6.8 4.4 10 8.3l-2 2.8c1.1 3 3.1 5 6.1 6.1l2.7-1.9 3.1 3.1c-.9 1.6-2.6 2.5-4.6 2.5C8.4 20.9 3 14.3 3 7.5c0-1.9 1.4-3 3.8-3.1Z"/>
+        <path d="M14.6 5.1c2.2.4 3.9 2.1 4.3 4.3M14.8 8c.8.2 1.5.8 1.7 1.7"/>
+      </svg>
+    </div>
+    <div class="title">Vapi Outbound Call</div>
+    <div class="sub">AI calls lead</div>
+  </div>
+
+  <div class="node logic" id="vars">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9.5 4.5H7.8c-1.4 0-2 .8-2 2.2v2c0 1.4-.5 2.2-1.8 2.4 1.3.2 1.8 1 1.8 2.4v3.8c0 1.4.6 2.2 2 2.2h1.7M14.5 4.5h1.7c1.4 0 2 .8 2 2.2v2c0 1.4.5 2.2 1.8 2.4-1.3.2-1.8 1-1.8 2.4v3.8c0 1.4-.6 2.2-2 2.2h-1.7"/>
+      </svg>
+    </div>
+    <div class="title">Prepare Vapi Variables</div>
+    <div class="sub">Call payload</div>
+  </div>
+
+  <div class="node ghl" id="contact">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="8.2" r="3"/>
+        <path d="M5.5 19.7c.7-3.8 3.1-5.8 6.5-5.8s5.8 2 6.5 5.8"/>
+      </svg>
+    </div>
+    <div class="title">Get GHL Contact</div>
+    <div class="sub">Lead context</div>
+  </div>
+
+  <div class="node calendar" id="slots">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="5.2" width="16" height="14.8" rx="2.3"/>
+        <path d="M8 3.5v3.6M16 3.5v3.6M4 10h16"/>
+        <path d="M8 14h3M13.5 14h2.5"/>
+      </svg>
+    </div>
+    <div class="title">Get Free Slots</div>
+    <div class="sub">GHL calendar</div>
+  </div>
+
+  <div class="node calendar" id="booking">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="4" y="5.2" width="16" height="14.8" rx="2.3"/>
+        <path d="M8 3.5v3.6M16 3.5v3.6M4 10h16"/>
+        <path d="m8.2 15 2.1 2.1 5-5"/>
+      </svg>
+    </div>
+    <div class="title">Create Appointment</div>
+    <div class="sub">Booking confirmed</div>
+  </div>
+
+  <div class="node ghl" id="notes">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="5" y="3.7" width="14" height="16.6" rx="2.1"/>
+        <path d="M8.2 8.2h7.6M8.2 12h7.6M8.2 15.8h4.7"/>
+      </svg>
+    </div>
+    <div class="title">Record Call in GHL</div>
+    <div class="sub">Summary + notes</div>
+    <div class="mini-stack"><span></span><span></span><span></span></div>
+  </div>
+
+  <div class="node mail" id="emails">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3.5" y="5.5" width="17" height="13" rx="2.2"/>
+        <path d="m4.7 7 7.3 5.5L19.3 7"/>
+      </svg>
+    </div>
+    <div class="title">Email Notifications</div>
+    <div class="sub">Team follow-up</div>
+  </div>
+
+  <div class="chip" id="chipLead">New contact</div>
+  <div class="chip" id="chipCall">Call started</div>
+  <div class="chip" id="chipSlots">Slots found</div>
+  <div class="chip" id="chipBook">Booked &#10003;</div>
+  <div class="chip" id="chipNote">CRM updated</div>
+  <div class="chip" id="chipMail">Emails sent &#10003;</div>
+
+  <div class="runner" id="runner"></div>
+
+  <div class="caption">
+    <span><strong>Lead &rarr; Call &rarr; Book &rarr; Record &rarr; Notify</strong></span>
+    <span>Powered by GoHighLevel + n8n + Vapi</span>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const workflow = $('#workflow');
+  const nodes = [...document.querySelectorAll('.node')];
+  const chips = [...document.querySelectorAll('.chip')];
+  const flows = [...document.querySelectorAll('.flow')];
+  const runner = $('#runner');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* Exact same workflow sequence and content as the existing animation. */
+  const steps = [
+    {node:'#fb', hold:660},
+    {path:'#p1', node:'#form', hold:690},
+    {path:'#p2', node:'#ghl', chip:'#chipLead', hold:760},
+    {path:'#p3', node:'#n8n', hold:720},
+    {path:'#p4', node:'#contact', hold:690},
+    {path:'#p5', node:'#vars', hold:680},
+    {path:'#p6', node:'#call', chip:'#chipCall', hold:1040},
+    {path:'#p7', node:'#route', hold:730},
+    {path:'#p8', node:'#slots', chip:'#chipSlots', hold:810},
+    {path:'#p9', node:'#booking', chip:'#chipBook', hold:850},
+    {path:'#p10', node:'#notes', chip:'#chipNote', hold:870},
+    {path:'#p11', node:'#notes', hold:480},
+    {path:'#p12', node:'#emails', chip:'#chipMail', hold:1120}
+  ];
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  function reset(){
+    nodes.forEach(n => n.classList.remove('active'));
+    chips.forEach(c => c.classList.remove('show'));
+    flows.forEach(p => {
+      p.classList.remove('on');
+      p.style.strokeDasharray = '';
+      p.style.strokeDashoffset = '';
+      p.style.removeProperty('--route-color');
+    });
+    runner.classList.remove('show');
+  }
+
+  function activate(sel){
+    if(sel) $(sel)?.classList.add('active');
+  }
+
+  function showChip(sel){
+    if(sel) $(sel)?.classList.add('show');
+  }
+
+  function routePath(pathSel, duration=720){
+    const path = $(pathSel);
+    if(!path || reduced) return Promise.resolve();
+
+    const routeColor = path.dataset.color || '#111827';
+    const rect = workflow.getBoundingClientRect();
+    const length = path.getTotalLength();
+
+    path.style.setProperty('--route-color', routeColor);
+    path.style.strokeDasharray = `${length} ${length}`;
+    path.style.strokeDashoffset = `${length}`;
+    path.classList.add('on');
+
+    runner.style.setProperty('--runner-color', routeColor);
+    runner.classList.add('show');
+
+    const start = performance.now();
+
+    return new Promise(resolve => {
+      const frame = now => {
+        const raw = Math.min(1, (now - start) / duration);
+        const p = raw < .5
+          ? 4 * raw * raw * raw
+          : 1 - Math.pow(-2 * raw + 2, 3) / 2;
+
+        path.style.strokeDashoffset = `${length * (1 - p)}`;
+
+        const at = path.getPointAtLength(length * p);
+        const before = path.getPointAtLength(Math.max(0, length * p - .4));
+        const after = path.getPointAtLength(Math.min(length, length * p + .4));
+        const angle = Math.atan2(after.y - before.y, after.x - before.x) * 180 / Math.PI;
+
+        runner.style.left = `${at.x / 100 * rect.width - 6.5}px`;
+        runner.style.top = `${at.y / 100 * rect.height - 2.5}px`;
+        runner.style.transform = `rotate(${angle}deg)`;
+
+        if(raw < 1){
+          requestAnimationFrame(frame);
+        }else{
+          setTimeout(() => path.classList.remove('on'), 180);
+          resolve();
+        }
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  async function play(){
+    if(reduced){
+      reset();
+      activate('#fb');
+      return;
+    }
+
+    while(true){
+      reset();
+      await sleep(520);
+
+      activate('#fb');
+      await sleep(steps[0].hold);
+
+      for(let i=1; i<steps.length; i++){
+        const step = steps[i];
+        const travel = Math.max(390, Math.min(760, step.hold * .72));
+
+        await routePath(step.path, travel);
+        activate(step.node);
+        showChip(step.chip);
+
+        await sleep(Math.max(260, step.hold * .48));
+      }
+
+      runner.classList.remove('show');
+      await sleep(1650);
+
+      /* refined fade-down before the loop restarts, rather than a hard visual reset */
+      nodes.forEach((n, i) => setTimeout(() => n.classList.remove('active'), i * 24));
+      chips.forEach(c => c.classList.remove('show'));
+      await sleep(520);
+    }
+  }
+
+  play();
+})();
+</script>
+</body>
+</html>

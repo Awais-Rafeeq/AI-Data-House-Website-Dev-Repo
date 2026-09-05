@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-green: #1a7a3c;
+    --brand-green-dark: #156332;
+    --brand-green-light: #e8f5ee;
+    /* Readable-by-default measure cap (~66ch of body text). */
+    --measure: 66ch;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    scroll-behavior: smooth;
+    /* Readability baseline: 17px body, generous line-height, near-black text. */
+    font-size: 17px;
+    line-height: 1.7;
+    color: #0f172a;
+  }
+}
+
+@layer utilities {
+  .gradient-brand {
+    background: linear-gradient(135deg, #1a7a3c 0%, #42a868 100%);
+  }
+
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+
+  .rotate-y-6 {
+    transform: rotateY(-6deg) rotateX(2deg);
+  }
+
+  /* Cap any prose container to a readable measure. */
+  .measure {
+    max-width: var(--measure);
+  }
+}
+
+/* ─── Long-form reading (blog + guides) ──────────────────────────────────────
+   One shared style so every article reads the same: 17-18px, line-height ~1.75,
+   near-black body, capped measure, clear paragraph + heading rhythm, and bold
+   key phrases that stand out. */
+@layer components {
+  .prose-adh {
+    max-width: var(--measure);
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: #1e293b;
+  }
+  .prose-adh p {
+    margin-bottom: 1.375rem;
+  }
+  .prose-adh strong,
+  .prose-adh b {
+    color: #0f172a;
+    font-weight: 700;
+  }
+  .prose-adh h2,
+  .prose-adh h3 {
+    color: #0f172a;
+    margin-top: 2.5rem;
+    margin-bottom: 1rem;
+    line-height: 1.25;
+  }
+}
+
+/* ─── Button safety (fix tablet text-break) ──────────────────────────────────
+   On tablet widths, side-by-side CTA buttons were squishing and their labels
+   were wrapping mid-phrase while the icon dropped to its own line. Keep every
+   button label on one line and never let its inline icon shrink. */
+@layer components {
+  button, a[role="button"] {
+    text-wrap: balance;
+  }
+  button > svg,
+  a > svg {
+    flex-shrink: 0;
+  }
+}

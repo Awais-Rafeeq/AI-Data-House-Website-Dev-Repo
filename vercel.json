@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "framework": "vite",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "redirects": [
+    { "source": "/ai-chatbot-service", "destination": "/solutions/ai-chatbots", "permanent": true },
+    { "source": "/automation", "destination": "/solutions/ai-workflow-automation", "permanent": true },
+    { "source": "/services/:slug", "destination": "/solutions/:slug", "permanent": true },
+    { "source": "/hub", "destination": "/resources", "permanent": true },
+    { "source": "/hub/case-studies", "destination": "/case-studies", "permanent": true },
+    { "source": "/hub/blog", "destination": "/resources/blog", "permanent": true },
+    { "source": "/hub/calculator", "destination": "/tools", "permanent": true },
+    { "source": "/resources/roi-calculator", "destination": "/tools", "permanent": true },
+    { "source": "/hub/read/:slug", "destination": "/resources/read/:slug", "permanent": true }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}

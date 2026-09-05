@@ -1,0 +1,7 @@
+{
+  "name": "AI Data House - Full Service Platform",
+  "description": "Complete professional website for AI Data House including 6 service pages, case studies, and blog. Optimized for SEO and Vercel deployment.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
