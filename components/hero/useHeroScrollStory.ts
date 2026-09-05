@@ -144,6 +144,10 @@ export function useHeroScrollStory({ count, enabled, reduceMotion }: HeroScrollS
         el.removeAttribute('aria-hidden');
       });
       actionsRef.current?.style.removeProperty('transform');
+      actionsRef.current?.style.removeProperty('opacity');
+      actionsRef.current?.style.removeProperty('visibility');
+      actionsRef.current?.style.removeProperty('pointer-events');
+      actionsRef.current?.removeAttribute('aria-hidden');
       stackRef.current?.style.removeProperty('transform');
       const clutch = clutchRef.current;
       if (clutch) {
@@ -253,13 +257,19 @@ export function useHeroScrollStory({ count, enabled, reduceMotion }: HeroScrollS
       const clutch = clutchRef.current;
       if (clutch) {
         const gone = smoothstep(clamp01(swap / CLUTCH_FADE));
+        const hidden = gone >= 1;
+        if (actions) {
+          actions.style.opacity = String(1 - gone);
+          actions.style.visibility = hidden ? 'hidden' : 'visible';
+          actions.style.pointerEvents = hidden ? 'none' : 'auto';
+          actions.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+        }
         clutch.style.opacity = String(1 - gone);
         // Written as a custom property rather than `transform` so the badge's
         // own hover lift still composes with it (see .hero-clutch while pinned).
         clutch.style.setProperty('--clutch-shift', `${(-CLUTCH_SLIDE * gone).toFixed(2)}px`);
         // Discrete, so it is not written every frame: once invisible the badge
         // leaves the a11y tree and stops taking the pointer.
-        const hidden = gone >= 1;
         if (hidden !== clutchGone) {
           clutchGone = hidden;
           clutch.style.visibility = hidden ? 'hidden' : 'visible';

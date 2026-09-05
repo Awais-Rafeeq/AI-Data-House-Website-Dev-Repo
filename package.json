@@ -8,16 +8,28 @@
     "build": "tsc && vite build && tsx scripts/prerender.ts",
     "build:novite": "vite build && tsx scripts/prerender.ts",
     "preview": "vite preview",
-    "test": "tsx scripts/test-blog-sanitizer.ts"
+    "test": "tsx scripts/test-blog-sanitizer.ts && tsx scripts/test-html-sanitizer.ts"
   },
   "dependencies": {
+    "@babel/parser": "^7.29.2",
+    "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/state": "^6.7.4",
+    "@codemirror/view": "^6.43.11",
     "@google/genai": "*",
     "@supabase/supabase-js": "^2.103.2",
+    "@tiptap/extension-image": "^3.31.3",
+    "@tiptap/extension-table": "^3.31.3",
+    "@tiptap/extension-text-align": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
     "@types/node": "^20.11.24",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.18",
+    "codemirror": "^6.0.2",
+    "dompurify": "^3.4.14",
     "lucide-react": "^0.344.0",
     "postcss": "^8.4.35",
     "react": "^18.2.0",
@@ -30,6 +42,8 @@
   },
   "devDependencies": {
     "@iconify-json/logos": "^1.2.13",
+    "@types/jsdom": "^30.0.0",
+    "jsdom": "^29.1.1",
     "simple-icons": "^16.29.0",
     "tsx": "^4.19.2"
   }

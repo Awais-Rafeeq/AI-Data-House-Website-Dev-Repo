@@ -1,214 +1,55 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronUp,
-  Eye, ImageIcon, Loader2, Plus, ShieldCheck, Trash2, Upload, X,
+  AlertCircle, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, Code2, Columns2,
+  Eye, FileText, Loader2, PanelRightClose, PanelRightOpen, Play, Save, ShieldCheck, Sparkles, Trash2,
 } from 'lucide-react';
-import { BLOG_CATEGORIES, type Block } from '../data/blog';
+import type { Block } from '../data/blog';
 import { useSeo, breadcrumbJsonLd } from '../lib/seo';
-import BlockRenderer from '../components/blog/BlockRenderer';
 import { invalidateBlogCache } from '../lib/useBlogPosts';
+import { isBeyondEditorial, isFullDocument } from '../lib/htmlSanitize';
 import {
-  BLOCK_TYPES_ALLOWED, IMAGE_MAX_BYTES, IMAGE_MIME_TYPES, estimateReadTime,
-  formatDateLabel, isBlogStoreConfigured, isSlugAvailable, resolveImageType, slugify, submitPost,
-  uploadCoverImage, validateDraft,
-  type FieldErrors, type SubmissionDraft, type SubmittableBlockType,
+  IMAGE_MAX_BYTES, IMAGE_MIME_TYPES, LIMITS, MIN_ARTICLE_CHARS, estimateReadTime,
+  formatDateLabel, htmlToPlainText, isBlogStoreConfigured, isSlugAvailable, resolveImageType,
+  slugify, submitPost, uploadCoverImage, validateDraft,
+  type FieldErrors, type SubmissionDraft,
 } from '../lib/blogStore';
+import Inspector, { type SlugStatus } from '../components/blog/studio/Inspector';
+import ArticlePreview, { DEVICE_OPTIONS, type PreviewDevice } from '../components/blog/studio/ArticlePreview';
+import PreviewFrame from '../components/blog/studio/PreviewFrame';
 
-const CATEGORY_OPTIONS = BLOG_CATEGORIES.filter((c) => c.id !== 'all');
+// Both editors are heavy (ProseMirror, CodeMirror) and most authors only ever
+// open one of them, so each arrives as its own chunk when its tab is first
+// opened rather than in the page's initial payload.
+const VisualEditor = lazy(() => import('../components/blog/studio/VisualEditor'));
+const HtmlSourceEditor = lazy(() => import('../components/blog/studio/HtmlSourceEditor'));
 
-const BLOCK_LABELS: Record<SubmittableBlockType, string> = {
-  p: 'Paragraph',
-  h2: 'Section heading',
-  list: 'Bullet list',
-  quote: 'Pull quote',
-  table: 'Table',
-};
-
+const DRAFT_KEY = 'adh:blog-studio-draft:v1';
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-const emptyBlock = (type: SubmittableBlockType): Block => {
-  switch (type) {
-    case 'list': return { type: 'list', items: [''] };
-    case 'table': return { type: 'table', head: ['', ''], rows: [['', '']] };
-    default: return { type, text: '' } as Block;
-  }
-};
+type Workspace = 'write' | 'html' | 'preview';
+/** How the HTML tab splits code against rendered output, W3Schools-style. */
+type SplitMode = 'split' | 'code' | 'output';
 
-// ─── Small form primitives, matching the site's input language ───────────────
-const inputCls =
-  'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-slate-900 font-medium placeholder:text-slate-300 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition';
+interface StoredDraft {
+  title: string; excerpt: string; category: string; tagsRaw: string;
+  author: string; authorRole: string; submitterEmail: string;
+  date: string; readTimeOverride: string; image: string; slug: string; slugTouched: boolean;
+  seoTitle: string; seoDescription: string; bodyHtml: string; savedAt: string;
+}
 
-const Field: React.FC<{
-  label: string;
-  hint?: string;
-  error?: string;
-  required?: boolean;
-  htmlFor?: string;
-  counter?: string;
-  children: React.ReactNode;
-}> = ({ label, hint, error, required, htmlFor, counter, children }) => (
-  <div>
-    <div className="flex items-baseline justify-between gap-3 mb-2">
-      <label htmlFor={htmlFor} className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-        {label} {required && <span className="text-emerald-600" aria-hidden="true">*</span>}
-      </label>
-      {counter && <span className="text-[11px] font-bold text-slate-300 tabular-nums">{counter}</span>}
-    </div>
-    {children}
-    {error ? (
-      <p role="alert" className="mt-2 flex items-start gap-1.5 text-xs font-bold text-rose-600">
-        <AlertCircle size={13} className="mt-px flex-none" aria-hidden="true" /> {error}
-      </p>
-    ) : hint ? (
-      <p className="mt-2 text-xs font-medium text-slate-400">{hint}</p>
-    ) : null}
+const EditorFallback = () => (
+  <div className="grid place-items-center h-96 text-slate-400" role="status" aria-label="Loading editor">
+    <Loader2 size={20} className="animate-spin" aria-hidden="true" />
   </div>
 );
-
-// ─── Block editor ────────────────────────────────────────────────────────────
-const BlockEditor: React.FC<{
-  blocks: Block[];
-  onChange: (blocks: Block[]) => void;
-}> = ({ blocks, onChange }) => {
-  const update = (i: number, next: Block) => onChange(blocks.map((b, j) => (j === i ? next : b)));
-  const remove = (i: number) => onChange(blocks.filter((_, j) => j !== i));
-  const move = (i: number, delta: number) => {
-    const j = i + delta;
-    if (j < 0 || j >= blocks.length) return;
-    const next = [...blocks];
-    [next[i], next[j]] = [next[j], next[i]];
-    onChange(next);
-  };
-
-  return (
-    <div className="space-y-4">
-      {blocks.map((block, i) => (
-        <div key={i} className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-              {BLOCK_LABELS[block.type as SubmittableBlockType] || block.type}
-            </span>
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={() => move(i, -1)} disabled={i === 0} aria-label={`Move block ${i + 1} up`}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent transition">
-                <ChevronUp size={15} />
-              </button>
-              <button type="button" onClick={() => move(i, 1)} disabled={i === blocks.length - 1} aria-label={`Move block ${i + 1} down`}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent transition">
-                <ChevronDown size={15} />
-              </button>
-              <button type="button" onClick={() => remove(i)} disabled={blocks.length === 1} aria-label={`Remove block ${i + 1}`}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white disabled:opacity-30 transition">
-                <Trash2 size={15} />
-              </button>
-            </div>
-          </div>
-
-          <div className="p-4">
-            {(block.type === 'p' || block.type === 'h2' || block.type === 'quote') && (
-              <textarea
-                value={block.text}
-                onChange={(e) => update(i, { ...block, text: e.target.value } as Block)}
-                rows={block.type === 'p' ? 5 : 2}
-                placeholder={block.type === 'h2' ? 'Section heading' : block.type === 'quote' ? 'A line worth pulling out' : 'Write a paragraph…'}
-                className={`${inputCls} resize-y leading-relaxed`}
-              />
-            )}
-
-            {block.type === 'list' && (
-              <div className="space-y-2">
-                {block.items.map((item, j) => (
-                  <div key={j} className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-none" aria-hidden="true" />
-                    <input
-                      value={item}
-                      onChange={(e) => update(i, { ...block, items: block.items.map((it, k) => (k === j ? e.target.value : it)) })}
-                      placeholder={`Point ${j + 1}`}
-                      className={inputCls}
-                    />
-                    <button type="button" onClick={() => update(i, { ...block, items: block.items.filter((_, k) => k !== j) })}
-                      disabled={block.items.length === 1} aria-label={`Remove point ${j + 1}`}
-                      className="p-2 rounded-lg text-slate-300 hover:text-rose-600 disabled:opacity-30 transition">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => update(i, { ...block, items: [...block.items, ''] })}
-                  className="text-xs font-black text-emerald-600 hover:underline">+ Add point</button>
-              </div>
-            )}
-
-            {block.type === 'table' && (
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  {block.head.map((h, j) => (
-                    <input
-                      key={j}
-                      value={h}
-                      onChange={(e) => update(i, { ...block, head: block.head.map((x, k) => (k === j ? e.target.value : x)) })}
-                      placeholder={`Column ${j + 1}`}
-                      className={`${inputCls} !py-2 text-sm font-bold`}
-                    />
-                  ))}
-                </div>
-                {block.rows.map((row, r) => (
-                  <div key={r} className="flex gap-2 items-center">
-                    {row.map((cell, c) => (
-                      <input
-                        key={c}
-                        value={cell}
-                        onChange={(e) => update(i, {
-                          ...block,
-                          rows: block.rows.map((rr, k) => (k === r ? rr.map((cc, m) => (m === c ? e.target.value : cc)) : rr)),
-                        })}
-                        placeholder="—"
-                        className={`${inputCls} !py-2 text-sm`}
-                      />
-                    ))}
-                    <button type="button" onClick={() => update(i, { ...block, rows: block.rows.filter((_, k) => k !== r) })}
-                      disabled={block.rows.length === 1} aria-label={`Remove row ${r + 1}`}
-                      className="p-2 rounded-lg text-slate-300 hover:text-rose-600 disabled:opacity-30 transition">
-                      <X size={14} />
-                    </button>
-                  </div>
-                ))}
-                <div className="flex gap-4">
-                  <button type="button" onClick={() => update(i, { ...block, rows: [...block.rows, block.head.map(() => '')] })}
-                    className="text-xs font-black text-emerald-600 hover:underline">+ Add row</button>
-                  {block.head.length < 6 && (
-                    <button type="button" onClick={() => update(i, { ...block, head: [...block.head, ''], rows: block.rows.map((r) => [...r, '']) })}
-                      className="text-xs font-black text-emerald-600 hover:underline">+ Add column</button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
-
-      <div className="flex flex-wrap gap-2 pt-1">
-        {BLOCK_TYPES_ALLOWED.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => onChange([...blocks, emptyBlock(t)])}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-600 hover:border-emerald-300 hover:text-emerald-700 transition"
-          >
-            <Plus size={13} aria-hidden="true" /> {BLOCK_LABELS[t]}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 const BlogSubmitPage: React.FC = () => {
   const navigate = useNavigate();
   useSeo({
-    title: 'Write for the Playbook — Submit an Article | AI Data House',
-    description: 'Submit a guide, case study, or tool comparison to the AI Data House Transformation Playbook. Every submission is reviewed by our editors before it goes live.',
+    title: 'Editorial Studio — Submit an Article | AI Data House',
+    description: 'Write, format and preview a guide, case study, or tool comparison for the AI Data House Transformation Playbook. Every submission is reviewed by our editors before it goes live.',
     path: '/resources/blog/submit',
     image: '/images/blog/blog-featured-cornerstone.png',
     noindex: true,
@@ -222,9 +63,10 @@ const BlogSubmitPage: React.FC = () => {
 
   const configured = useMemo(() => isBlogStoreConfigured(), []);
 
+  // ── Article metadata (unchanged set — only where it lives has moved) ──
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
-  const [category, setCategory] = useState(CATEGORY_OPTIONS[0]?.id || 'Guides');
+  const [category, setCategory] = useState('Guides');
   const [tagsRaw, setTagsRaw] = useState('');
   const [author, setAuthor] = useState('');
   const [authorRole, setAuthorRole] = useState('');
@@ -236,30 +78,51 @@ const BlogSubmitPage: React.FC = () => {
   const [slugTouched, setSlugTouched] = useState(false);
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
-  const [blocks, setBlocks] = useState<Block[]>([emptyBlock('p')]);
+
+  // ── The article body. One HTML string is the single source of truth for both
+  // the visual tab and the source tab, so switching between them is two views
+  // of one value rather than two documents to reconcile. ──
+  const [bodyHtml, setBodyHtml] = useState('');
 
   // Bots fill hidden fields; humans never see this one.
   const [honeypot, setHoneypot] = useState('');
+
+  const [workspace, setWorkspace] = useState<Workspace>('write');
+  const [splitMode, setSplitMode] = useState<SplitMode>('split');
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [convertPrompt, setConvertPrompt] = useState(false);
 
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  // A local object URL for the file the writer just picked, shown instantly
-  // while the real upload is in flight — separate from `image`, which only
-  // ever holds the final, hosted URL that gets submitted.
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState<{ slug: string } | null>(null);
-  const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'free' | 'taken'>('idle');
-  const [showPreview, setShowPreview] = useState(true);
+  const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle');
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const tags = useMemo(
     () => tagsRaw.split(',').map((t) => t.trim()).filter(Boolean).slice(0, 8),
     [tagsRaw],
   );
-  const readTime = readTimeOverride.trim() || estimateReadTime(blocks);
+
+  // 'custom' the moment the body uses markup the visual editor cannot represent
+  // — a full document, or layout elements it has no node for. Derived, never a
+  // manual switch, so it can never disagree with what is actually stored.
+  const contentMode = useMemo(() => (isBeyondEditorial(bodyHtml) ? 'custom' : 'editorial'), [bodyHtml]);
+
+  const blocks: Block[] = useMemo(
+    () => (htmlToPlainText(bodyHtml) ? [{ type: 'html', html: bodyHtml, mode: contentMode }] : []),
+    [bodyHtml, contentMode],
+  );
+
+  const estimatedReadTime = useMemo(() => estimateReadTime(blocks), [blocks]);
+  const readTime = readTimeOverride.trim() || estimatedReadTime;
+  const bodyChars = useMemo(() => htmlToPlainText(bodyHtml).length, [bodyHtml]);
 
   // The slug follows the title until the writer edits it themselves.
   useEffect(() => {
@@ -267,7 +130,7 @@ const BlogSubmitPage: React.FC = () => {
   }, [title, slugTouched]);
 
   // Debounced availability check, so the writer learns about a clash here
-  // rather than after filling in the whole article.
+  // rather than after writing the whole article.
   useEffect(() => {
     if (!slug) { setSlugStatus('idle'); return undefined; }
     setSlugStatus('checking');
@@ -283,19 +146,69 @@ const BlogSubmitPage: React.FC = () => {
     date, readTime, image, slug, seoTitle, seoDescription, blocks,
   }), [title, excerpt, category, tags, author, authorRole, submitterEmail, date, readTime, image, slug, seoTitle, seoDescription, blocks]);
 
+  // ── Drafts ────────────────────────────────────────────────────────────────
+  // Local only, and deliberately so: nothing is written to the review queue
+  // until the author actually submits.
+  const snapshot = useCallback((): StoredDraft => ({
+    title, excerpt, category, tagsRaw, author, authorRole, submitterEmail,
+    date, readTimeOverride, image, slug, slugTouched, seoTitle, seoDescription,
+    bodyHtml, savedAt: new Date().toISOString(),
+  }), [title, excerpt, category, tagsRaw, author, authorRole, submitterEmail, date, readTimeOverride, image, slug, slugTouched, seoTitle, seoDescription, bodyHtml]);
+
+  const saveDraft = useCallback(() => {
+    try {
+      const data = snapshot();
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+      setDraftSavedAt(data.savedAt);
+    } catch {
+      /* private mode / quota — drafts are a convenience, never a requirement */
+    }
+  }, [snapshot]);
+
+  // Restore once, on mount.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw) as Partial<StoredDraft>;
+      if (!d || typeof d !== 'object') return;
+      setTitle(d.title || ''); setExcerpt(d.excerpt || '');
+      setCategory(d.category || 'Guides'); setTagsRaw(d.tagsRaw || '');
+      setAuthor(d.author || ''); setAuthorRole(d.authorRole || '');
+      setSubmitterEmail(d.submitterEmail || ''); setDate(d.date || todayIso());
+      setReadTimeOverride(d.readTimeOverride || ''); setImage(d.image || '');
+      setSlug(d.slug || ''); setSlugTouched(Boolean(d.slugTouched));
+      setSeoTitle(d.seoTitle || ''); setSeoDescription(d.seoDescription || '');
+      setBodyHtml(d.bodyHtml || '');
+      setDraftSavedAt(d.savedAt || null);
+      setDraftRestored(true);
+    } catch {
+      /* a corrupt draft should never block the page */
+    }
+  }, []);
+
+  // Autosave, debounced, once there is something worth keeping.
+  useEffect(() => {
+    if (!title && !bodyHtml) return undefined;
+    const t = window.setTimeout(saveDraft, 1200);
+    return () => window.clearTimeout(t);
+  }, [saveDraft, title, bodyHtml]);
+
+  const discardDraft = () => {
+    try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to do */ }
+    setDraftSavedAt(null);
+    setDraftRestored(false);
+  };
+
+  // ── Cover image ───────────────────────────────────────────────────────────
   const handleFile = useCallback(async (file: File | undefined) => {
     if (!file) return;
     setUploadError('');
-    if (!resolveImageType(file)) {
-      setUploadError('Use a JPG, PNG, WebP or AVIF image.');
-      return;
-    }
+    if (!resolveImageType(file)) { setUploadError('Use a JPG, PNG, WebP or AVIF image.'); return; }
     if (file.size > IMAGE_MAX_BYTES) {
       setUploadError(`That image is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 3 MB.`);
       return;
     }
-    // Show the picked file immediately — the writer sees their image before
-    // the network round trip finishes, not just after it succeeds.
     setPreviewUrl(URL.createObjectURL(file));
     setUploading(true);
     const result = await uploadCoverImage(file);
@@ -309,13 +222,21 @@ const BlogSubmitPage: React.FC = () => {
     }
   }, []);
 
-  // Release the local preview URL whenever it is replaced or the page is left
-  // mid-upload, so a picked-but-not-yet-uploaded file doesn't leak memory.
   useEffect(() => {
     if (!previewUrl) return undefined;
     return () => URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
+  // ── Mode switching ────────────────────────────────────────────────────────
+  // Going to the visual editor with a body it cannot represent would silently
+  // rewrite the author's markup, so that switch asks first. Every other switch
+  // is free: both tabs edit the same string.
+  const goToWorkspace = (next: Workspace) => {
+    if (next === 'write' && contentMode === 'custom') { setConvertPrompt(true); return; }
+    setWorkspace(next);
+  };
+
+  // ── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -326,6 +247,10 @@ const BlogSubmitPage: React.FC = () => {
     setErrors(fieldErrors);
     if (Object.keys(fieldErrors).length > 0) {
       setFormError('Please fix the highlighted fields.');
+      if (fieldErrors.image || fieldErrors.category || fieldErrors.author || fieldErrors.submitterEmail
+        || fieldErrors.date || fieldErrors.slug || fieldErrors.tags) {
+        setInspectorOpen(true);
+      }
       document.querySelector('[role="alert"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -336,6 +261,7 @@ const BlogSubmitPage: React.FC = () => {
 
     if (result.ok && result.slug) {
       invalidateBlogCache();
+      discardDraft();
       setDone({ slug: result.slug });
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -344,7 +270,7 @@ const BlogSubmitPage: React.FC = () => {
     setFormError(result.error || 'Something went wrong. Please try again.');
   };
 
-  // ── Success ──
+  // ── Success ───────────────────────────────────────────────────────────────
   if (done) {
     return (
       <div className="pt-32 pb-24 bg-white min-h-screen">
@@ -370,7 +296,7 @@ const BlogSubmitPage: React.FC = () => {
               onClick={() => { setDone(null); window.scrollTo(0, 0); }}
               className="px-7 py-3.5 bg-white border-2 border-slate-200 text-slate-700 font-bold rounded-2xl hover:border-emerald-400 hover:text-emerald-600 transition-all"
             >
-              Submit another
+              Write another
             </button>
           </div>
         </div>
@@ -378,318 +304,344 @@ const BlogSubmitPage: React.FC = () => {
     );
   }
 
-  const previewPost = {
-    title: title || 'Your article title will appear here',
-    excerpt,
-    category,
-    author: author ? (authorRole ? `${author}, ${authorRole}` : author) : 'Your name',
+  const previewData = {
+    title, excerpt, category,
+    author: author || 'Your name',
+    authorRole,
     dateLabel: formatDateLabel(date),
-    readTime,
-    image,
+    readTime, image, tags, blocks,
   };
 
-  return (
-    <div className="pt-32 pb-24 bg-white min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Link to="/resources/blog" className="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-600 font-bold uppercase tracking-widest text-xs mb-9 transition-colors">
-          <ArrowLeft size={15} aria-hidden="true" /> Back to the Playbook
-        </Link>
+  const tabCls = (on: boolean) =>
+    `inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black transition-colors ${
+      on ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900'
+    }`;
 
-        <header className="max-w-3xl mb-12">
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 mb-5">Write for the Playbook</p>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 leading-[1.06] mb-5">
-            Submit an article.
-          </h1>
-          <p className="text-lg text-slate-500 font-medium leading-relaxed">
-            Share a real automation you built, a tool comparison you actually ran, or a guide that
-            would have saved you a week. Every submission is read by our editors before it goes live.
-          </p>
-        </header>
+  return (
+    // On a wide screen the studio is a fixed workspace: exactly one viewport
+    // tall, with the editor and inspector scrolling inside it. Without the
+    // bounded height the editors size themselves to their content instead, and
+    // a long document turns the whole page into one enormous scroll. Narrow
+    // screens keep ordinary page scrolling, which is the better behaviour on a
+    // phone and avoids fighting mobile browser chrome.
+    <form onSubmit={handleSubmit} noValidate className="min-h-screen xl:h-screen xl:overflow-hidden bg-slate-50 flex flex-col">
+      {/* Honeypot: off-screen, not display:none, so bots still fill it. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] top-0 h-px w-px overflow-hidden">
+        <label htmlFor="company-website">Company website</label>
+        <input id="company-website" name="company-website" tabIndex={-1} autoComplete="off"
+          value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+      </div>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept={IMAGE_MIME_TYPES.join(',')}
+        className="sr-only"
+        onChange={(e) => { void handleFile(e.target.files?.[0]); e.target.value = ''; }}
+      />
+
+      {/* ── Top bar ── */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200">
+        <div className="flex items-center gap-3 px-4 sm:px-6 h-16 pt-[env(safe-area-inset-top)]">
+          <Link
+            to="/resources/blog"
+            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-emerald-600 font-bold text-xs transition-colors flex-none"
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
+            <span className="hidden sm:inline">Back to Blog</span>
+          </Link>
+
+          <span className="w-px h-6 bg-slate-200 hidden sm:block" aria-hidden="true" />
+
+          <div className="min-w-0 flex-1">
+            <h1 className="flex items-center gap-2 text-sm font-black text-slate-900 truncate">
+              <Sparkles size={14} className="text-emerald-600 flex-none" aria-hidden="true" />
+              {title || 'New Article'}
+            </h1>
+            <p className="text-[11px] font-medium text-slate-400 truncate">
+              {contentMode === 'custom' ? 'Custom HTML' : 'Editorial'} ·{' '}
+              {bodyChars.toLocaleString()} characters ·{' '}
+              {draftSavedAt ? `draft saved ${new Date(draftSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'not saved yet'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={saveDraft}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black text-slate-600 border border-slate-200 bg-white hover:border-emerald-300 hover:text-emerald-700 transition-colors"
+          >
+            <Save size={14} aria-hidden="true" /> Save draft
+          </button>
+
+          <button
+            type="button"
+            onClick={() => goToWorkspace('preview')}
+            className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black text-slate-600 border border-slate-200 bg-white hover:border-emerald-300 hover:text-emerald-700 transition-colors"
+          >
+            <Eye size={14} aria-hidden="true" /> Preview
+          </button>
+
+          <button
+            type="submit"
+            disabled={submitting || uploading}
+            className="inline-flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black hover:bg-emerald-500 disabled:opacity-60 transition-colors flex-none"
+          >
+            {submitting ? <>Submitting <Loader2 size={14} className="animate-spin" /></> : <>Submit for review <ArrowRight size={14} /></>}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setInspectorOpen((v) => !v)}
+            aria-label={inspectorOpen ? 'Hide article settings' : 'Show article settings'}
+            className="xl:hidden inline-flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-emerald-600 transition-colors flex-none"
+          >
+            {inspectorOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
+          </button>
+        </div>
 
         {!configured && (
-          <div className="mb-10 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-            <AlertCircle size={18} className="text-amber-600 flex-none mt-0.5" aria-hidden="true" />
-            <div>
-              <p className="font-black text-amber-900 text-sm mb-1">Submissions are not open yet.</p>
-              <p className="text-sm text-amber-800 font-medium leading-relaxed">
-                The article store is not configured on this deployment, so nothing can be saved. You
-                can still write and preview below. Email{' '}
-                <a href="mailto:info@aidatahouse.com" className="underline font-bold">info@aidatahouse.com</a> to pitch in the meantime.
-              </p>
-            </div>
+          <div className="flex items-start gap-2.5 px-4 sm:px-6 py-2.5 bg-amber-50 border-t border-amber-200 text-amber-900">
+            <AlertCircle size={15} className="flex-none mt-0.5" aria-hidden="true" />
+            <p className="text-xs font-medium leading-relaxed">
+              <strong className="font-black">Submissions are not open yet.</strong> The article store is not
+              configured on this deployment, so nothing can be saved. You can still write and preview.
+              Email <a href="mailto:info@aidatahouse.com" className="underline font-bold">info@aidatahouse.com</a> to pitch in the meantime.
+            </p>
           </div>
         )}
 
-        <div className="grid xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] gap-10 xl:gap-14 items-start">
+        {draftRestored && (
+          <div className="flex items-center gap-2.5 px-4 sm:px-6 py-2 bg-emerald-50 border-t border-emerald-100 text-emerald-800">
+            <Check size={14} className="flex-none" aria-hidden="true" />
+            <p className="text-xs font-bold">Draft restored from this browser.</p>
+            <button type="button" onClick={discardDraft} className="ml-auto inline-flex items-center gap-1 text-xs font-black text-emerald-700 hover:text-rose-600">
+              <Trash2 size={12} aria-hidden="true" /> Discard
+            </button>
+          </div>
+        )}
+      </header>
 
-          {/* ── Form ── */}
-          <form onSubmit={handleSubmit} noValidate className="min-w-0 space-y-12">
+      {/* ── Workspace ── */}
+      <div className="flex-1 min-h-0 flex flex-col xl:flex-row">
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col p-4 sm:p-6 xl:p-8 gap-5 xl:overflow-hidden">
 
-            {/* Honeypot: off-screen, not hidden via display, so bots still fill it. */}
-            <div aria-hidden="true" className="absolute -left-[9999px] top-0 h-px w-px overflow-hidden">
-              <label htmlFor="company-website">Company website</label>
-              <input id="company-website" name="company-website" tabIndex={-1} autoComplete="off"
-                value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
-            </div>
-
-            <section aria-labelledby="sec-article" className="space-y-6">
-              <h2 id="sec-article" className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 pb-3 border-b border-slate-100">
-                The article
-              </h2>
-
-              <Field label="Title" required htmlFor="f-title" error={errors.title} counter={`${title.length}/160`}
-                hint="What the post is about, in one specific sentence.">
-                <input id="f-title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={160}
-                  placeholder="How we cut a 6-hour reporting job to 4 minutes" className={inputCls} />
-              </Field>
-
-              <Field label="Summary" required htmlFor="f-excerpt" error={errors.excerpt} counter={`${excerpt.length}/400`}
-                hint="Shown on the blog card and used as the meta description if you leave SEO blank.">
-                <textarea id="f-excerpt" value={excerpt} onChange={(e) => setExcerpt(e.target.value)} maxLength={400} rows={3}
-                  placeholder="Two or three sentences on what the reader gets out of this." className={`${inputCls} resize-y`} />
-              </Field>
-
-              <div className="grid sm:grid-cols-2 gap-6">
-                <Field label="Category" required htmlFor="f-category" error={errors.category}>
-                  <select id="f-category" value={category} onChange={(e) => setCategory(e.target.value)} className={inputCls}>
-                    {CATEGORY_OPTIONS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                  </select>
-                </Field>
-                <Field label="Tags" htmlFor="f-tags" error={errors.tags} hint="Comma separated, up to 8." counter={`${tags.length}/8`}>
-                  <input id="f-tags" value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)}
-                    placeholder="n8n, reporting, dashboards" className={inputCls} />
-                </Field>
-              </div>
-            </section>
-
-            <section aria-labelledby="sec-cover" className="space-y-6">
-              <h2 id="sec-cover" className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 pb-3 border-b border-slate-100">
-                Cover image
-              </h2>
-
-              <Field label="Cover" required error={errors.image || uploadError}
-                hint="JPG, PNG, WebP or AVIF. Up to 3 MB. Landscape works best.">
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept={IMAGE_MIME_TYPES.join(',')}
-                  className="sr-only"
-                  onChange={(e) => { void handleFile(e.target.files?.[0]); e.target.value = ''; }}
-                />
-                {(previewUrl || image) ? (
-                  <div className="relative rounded-2xl border border-slate-200 overflow-hidden">
-                    <img src={previewUrl || image} alt="Cover preview" className="w-full h-52 object-cover" />
-                    {uploading ? (
-                      <div className="absolute inset-0 bg-white/80 grid place-items-center" role="status">
-                        <span className="inline-flex items-center gap-2.5 font-bold text-slate-600">
-                          <Loader2 size={18} className="animate-spin" aria-hidden="true" /> Uploading…
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-3 px-4 py-3 bg-slate-50 border-t border-slate-100">
-                        <span className="flex items-center gap-2 text-xs font-bold text-emerald-700">
-                          <Check size={14} aria-hidden="true" /> Uploaded
-                        </span>
-                        <div className="flex gap-2">
-                          <button type="button" onClick={() => fileRef.current?.click()}
-                            className="text-xs font-black text-slate-500 hover:text-emerald-600">Replace</button>
-                          <button type="button" onClick={() => setImage('')}
-                            className="text-xs font-black text-slate-400 hover:text-rose-600">Remove</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    disabled={!configured}
-                    className="w-full rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center hover:border-emerald-300 hover:bg-emerald-50/30 disabled:opacity-60 disabled:hover:border-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                  >
-                    <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-white border border-slate-200 text-slate-400">
-                      <Upload size={19} aria-hidden="true" />
-                    </span>
-                    <span className="block font-black text-slate-700 text-sm">Choose an image from your computer</span>
-                    <span className="block text-xs font-medium text-slate-400 mt-1">
-                      {configured ? 'Uploads as soon as you pick it' : 'Unavailable until the store is configured'}
-                    </span>
-                  </button>
-                )}
-              </Field>
-            </section>
-
-            <section aria-labelledby="sec-body" className="space-y-6">
-              <div className="pb-3 border-b border-slate-100">
-                <h2 id="sec-body" className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Article body</h2>
-              </div>
-              {errors.blocks && (
-                <p role="alert" className="flex items-start gap-1.5 text-xs font-bold text-rose-600">
-                  <AlertCircle size={13} className="mt-px flex-none" aria-hidden="true" /> {errors.blocks}
-                </p>
+          {/* Title + summary stay above the editor: they are the article, not settings. */}
+          <div className="flex-none rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+            <label htmlFor="f-title" className="sr-only">Title</label>
+            <input
+              id="f-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={LIMITS.title}
+              placeholder="How we cut a 6-hour reporting job to 4 minutes"
+              className="w-full text-2xl sm:text-[2rem] font-black tracking-tight text-slate-900 placeholder:text-slate-300 bg-transparent outline-none leading-tight"
+            />
+            <label htmlFor="f-excerpt" className="sr-only">Summary</label>
+            <textarea
+              id="f-excerpt"
+              value={excerpt}
+              onChange={(e) => setExcerpt(e.target.value)}
+              maxLength={LIMITS.excerpt}
+              rows={2}
+              placeholder="Two or three sentences on what the reader gets out of this. Shown on the blog card and used as the meta description."
+              className="mt-3 w-full resize-none text-base text-slate-500 font-medium leading-relaxed placeholder:text-slate-300 bg-transparent outline-none"
+            />
+            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] font-bold">
+              <span className={title.length >= 10 ? 'text-slate-400' : 'text-slate-300'}>
+                Title {title.length}/{LIMITS.title}
+              </span>
+              <span className={excerpt.length >= 40 ? 'text-slate-400' : 'text-slate-300'}>
+                Summary {excerpt.length}/{LIMITS.excerpt}
+              </span>
+              {(errors.title || errors.excerpt) && (
+                <span role="alert" className="text-rose-600">{errors.title || errors.excerpt}</span>
               )}
-              <BlockEditor blocks={blocks} onChange={setBlocks} />
-              <p className="text-xs font-medium text-slate-400">
-                Articles are built from blocks, not raw HTML — that is what keeps every post on the
-                site rendering the same way. Estimated read time: <strong className="text-slate-600">{readTime}</strong>.
-              </p>
-            </section>
+            </div>
+          </div>
 
-            <section aria-labelledby="sec-author" className="space-y-6">
-              <h2 id="sec-author" className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 pb-3 border-b border-slate-100">
-                About you
-              </h2>
-              <div className="grid sm:grid-cols-2 gap-6">
-                <Field label="Author name" required htmlFor="f-author" error={errors.author}>
-                  <input id="f-author" value={author} onChange={(e) => setAuthor(e.target.value)} maxLength={80}
-                    placeholder="Jane Okafor" className={inputCls} />
-                </Field>
-                <Field label="Role / title" htmlFor="f-role" hint="Shown under your name on the byline.">
-                  <input id="f-role" value={authorRole} onChange={(e) => setAuthorRole(e.target.value)} maxLength={80}
-                    placeholder="Head of Operations, Northwind" className={inputCls} />
-                </Field>
-              </div>
-              <Field label="Your email" required htmlFor="f-email" error={errors.submitterEmail}
-                hint="Only used to reach you about this submission. Never published.">
-                <input id="f-email" type="email" value={submitterEmail} onChange={(e) => setSubmitterEmail(e.target.value)}
-                  maxLength={160} placeholder="you@company.com" className={inputCls} />
-              </Field>
-            </section>
-
-            <section aria-labelledby="sec-publish" className="space-y-6">
-              <h2 id="sec-publish" className="text-xs font-black uppercase tracking-[0.2em] text-slate-400 pb-3 border-b border-slate-100">
-                Publishing details
-              </h2>
-
-              <div className="grid sm:grid-cols-2 gap-6">
-                <Field label="Publish date" required htmlFor="f-date" error={errors.date}>
-                  <input id="f-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
-                </Field>
-                <Field label="Read time" htmlFor="f-readtime" hint={`Leave blank to use the estimate (${estimateReadTime(blocks)}).`}>
-                  <input id="f-readtime" value={readTimeOverride} onChange={(e) => setReadTimeOverride(e.target.value)}
-                    maxLength={16} placeholder={estimateReadTime(blocks)} className={inputCls} />
-                </Field>
+          {/* Editor card */}
+          <section className="flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white flex flex-col overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-slate-200 bg-slate-50/70">
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100">
+                <button type="button" onClick={() => goToWorkspace('write')} className={tabCls(workspace === 'write')}>
+                  <FileText size={13} aria-hidden="true" /> Visual Editor
+                </button>
+                <button type="button" onClick={() => goToWorkspace('html')} className={tabCls(workspace === 'html')}>
+                  <Code2 size={13} aria-hidden="true" /> HTML Source
+                </button>
+                <button type="button" onClick={() => goToWorkspace('preview')} className={tabCls(workspace === 'preview')}>
+                  <Eye size={13} aria-hidden="true" /> Live Preview
+                </button>
               </div>
 
-              <Field
-                label="URL slug"
-                required
-                htmlFor="f-slug"
-                error={errors.slug}
-                hint={slugStatus === 'taken' ? undefined : `The post will live at /resources/${slug || '…'}`}
-              >
-                <div className="relative">
-                  <input
-                    id="f-slug"
-                    value={slug}
-                    onChange={(e) => { setSlugTouched(true); setSlug(slugify(e.target.value)); }}
-                    maxLength={80}
-                    placeholder="how-we-cut-reporting-to-four-minutes"
-                    className={`${inputCls} pr-28`}
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-black uppercase tracking-wider">
-                    {slugStatus === 'checking' && <span className="text-slate-300">Checking…</span>}
-                    {slugStatus === 'free' && <span className="text-emerald-600">Available</span>}
-                    {slugStatus === 'taken' && <span className="text-rose-600">Taken</span>}
-                  </span>
-                </div>
-                {slugStatus === 'taken' && (
-                  <p className="mt-2 text-xs font-bold text-rose-600">
-                    That URL is in use. Edit it, or we will add a number when you submit.
-                  </p>
+              <div className="ml-auto flex items-center gap-2">
+                {workspace === 'html' && (
+                  <div className="hidden md:flex items-center gap-1 p-1 rounded-2xl bg-slate-100">
+                    {([['split', Columns2, 'Split'], ['code', Code2, 'Editor'], ['output', Play, 'Result']] as const).map(([id, Icon, label]) => (
+                      <button key={id} type="button" onClick={() => setSplitMode(id)} className={tabCls(splitMode === id)}>
+                        <Icon size={13} aria-hidden="true" /> {label}
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </Field>
 
-              <div className="grid sm:grid-cols-2 gap-6">
-                <Field label="SEO title" htmlFor="f-seotitle" error={errors.seoTitle} counter={`${seoTitle.length}/160`}
-                  hint="Optional. Defaults to the article title.">
-                  <input id="f-seotitle" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} maxLength={160} className={inputCls} />
-                </Field>
-                <Field label="SEO description" htmlFor="f-seodesc" error={errors.seoDescription} counter={`${seoDescription.length}/320`}
-                  hint="Optional. Defaults to the summary.">
-                  <input id="f-seodesc" value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} maxLength={320} className={inputCls} />
-                </Field>
+                {workspace === 'preview' && (
+                  <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100">
+                    {DEVICE_OPTIONS.map(({ id, label, Icon }) => (
+                      <button key={id} type="button" onClick={() => setDevice(id)} className={tabCls(device === id)} aria-label={label}>
+                        <Icon size={13} aria-hidden="true" />
+                        <span className="hidden lg:inline">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {contentMode === 'custom' && (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white">
+                    <Code2 size={11} aria-hidden="true" /> HTML authoritative
+                  </span>
+                )}
               </div>
-            </section>
-
-            {formError && (
-              <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">
-                <AlertCircle size={16} className="mt-px flex-none" aria-hidden="true" /> {formError}
-              </p>
-            )}
-
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-2">
-              <button
-                type="submit"
-                disabled={submitting || uploading}
-                className="px-8 py-4 bg-emerald-600 text-white font-black rounded-2xl hover:bg-emerald-500 disabled:opacity-60 transition-all inline-flex items-center justify-center gap-2.5"
-              >
-                {submitting ? <>Submitting <Loader2 size={17} className="animate-spin" /></> : <>Submit for review <ArrowRight size={17} /></>}
-              </button>
-              <p className="flex items-start gap-2 text-xs font-medium text-slate-400 max-w-sm leading-relaxed">
-                <ShieldCheck size={14} className="mt-0.5 flex-none text-slate-300" aria-hidden="true" />
-                Submissions are held for editorial review. Nothing is published to the site automatically.
-              </p>
-            </div>
-          </form>
-
-          {/* ── Live preview ── */}
-          <aside className="min-w-0 xl:sticky xl:top-28">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <h2 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                <Eye size={14} aria-hidden="true" /> Live preview
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowPreview((v) => !v)}
-                className="text-xs font-black text-slate-400 hover:text-emerald-600 xl:hidden"
-              >
-                {showPreview ? 'Hide' : 'Show'}
-              </button>
             </div>
 
-            {showPreview && (
-              <div className="rounded-[1.75rem] border border-slate-200 bg-white overflow-hidden">
-                {/* Card, exactly as it will look in the listing grid. */}
-                <div className="p-4 bg-slate-50 border-b border-slate-100">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-3">Blog card</p>
-                  <div className="rounded-[1.25rem] border border-slate-200/70 bg-white overflow-hidden">
-                    <div className="h-32 bg-slate-100 grid place-items-center overflow-hidden">
-                      {previewPost.image
-                        ? <img src={previewPost.image} alt="" className="w-full h-full object-cover" />
-                        : <ImageIcon size={22} className="text-slate-300" aria-hidden="true" />}
-                    </div>
-                    <div className="p-4">
-                      <span className="inline-block rounded-full bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-emerald-700 mb-2">
-                        {previewPost.category}
-                      </span>
-                      <h3 className="text-sm font-black text-slate-900 leading-snug mb-1.5">{previewPost.title}</h3>
-                      <p className="text-xs text-slate-500 font-medium line-clamp-2">{previewPost.excerpt || 'Your summary appears here.'}</p>
-                      <p className="mt-3 pt-3 border-t border-slate-100 text-[10px] font-bold text-slate-400">
-                        {previewPost.author} · {previewPost.dateLabel} · {previewPost.readTime} read
-                      </p>
-                    </div>
-                  </div>
+            {/* Switching to the visual editor would flatten this body, so ask. */}
+            {convertPrompt && (
+              <div role="alert" className="flex flex-wrap items-start gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200">
+                <AlertCircle size={16} className="text-amber-600 flex-none mt-0.5" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-amber-900 mb-0.5">This body uses markup the visual editor cannot represent.</p>
+                  <p className="text-xs font-medium text-amber-800 leading-relaxed">
+                    {isFullDocument(bodyHtml)
+                      ? 'It looks like a complete HTML document.'
+                      : 'It contains layout elements (like div or section) that the visual editor has no equivalent for.'}{' '}
+                    Opening it there would simplify your markup. Your HTML is kept exactly as written unless you choose to convert.
+                  </p>
                 </div>
-
-                {/* Article, rendered by the same component the live post uses. */}
-                <div className="p-5 max-h-[34rem] overflow-y-auto">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 mb-4">Article</p>
-                  <h3 className="text-xl font-black text-slate-900 leading-tight tracking-tight mb-3">{previewPost.title}</h3>
-                  {excerpt && <p className="text-sm text-slate-500 font-medium leading-relaxed mb-5">{excerpt}</p>}
-                  <div className="text-sm [&_h2]:text-lg [&_h2]:mt-8 [&_p]:text-sm [&_p]:mb-4 [&_blockquote]:text-base">
-                    <BlockRenderer blocks={blocks} />
-                  </div>
+                <div className="flex gap-2 flex-none">
+                  <button type="button" onClick={() => setConvertPrompt(false)}
+                    className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-black text-amber-900 hover:border-amber-400">
+                    Keep editing HTML
+                  </button>
+                  <button type="button" onClick={() => { setConvertPrompt(false); setWorkspace('write'); }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-black hover:bg-amber-700">
+                    Convert anyway
+                  </button>
                 </div>
               </div>
             )}
 
-            <p className="mt-4 text-xs font-medium text-slate-400 leading-relaxed">
-              The article panel uses the same renderer as a published post, so this is how it will read.
+            <div className="flex-1 min-h-[26rem] xl:min-h-0 overflow-hidden">
+              {workspace === 'write' && (
+                <Suspense fallback={<EditorFallback />}>
+                  <VisualEditor html={bodyHtml} onChange={setBodyHtml} onError={setUploadError} />
+                </Suspense>
+              )}
+
+              {workspace === 'html' && (
+                <div className={`h-full min-h-0 ${splitMode === 'split' ? 'grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200' : 'block'}`}>
+                  {splitMode !== 'output' && (
+                    <div className="min-h-[18rem] md:min-h-0 h-full overflow-hidden">
+                      <Suspense fallback={<EditorFallback />}>
+                        <HtmlSourceEditor value={bodyHtml} onChange={setBodyHtml} ariaLabel="Article HTML source" />
+                      </Suspense>
+                    </div>
+                  )}
+                  {splitMode !== 'code' && (
+                    <div className="min-h-[18rem] md:min-h-0 h-full bg-slate-50">
+                      {/* Sandboxed: no scripts, no same-origin. See PreviewFrame. */}
+                      <PreviewFrame html={bodyHtml} title="Rendered HTML output" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {workspace === 'preview' && (
+                <ArticlePreview data={previewData} device={device} />
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 border-t border-slate-100 bg-white text-[11px] font-medium text-slate-400">
+              {workspace === 'html' ? (
+                <span>Paste article HTML or a whole document. Scripts, styles and event handlers are removed before anything is published.</span>
+              ) : workspace === 'preview' ? (
+                <span>Rendered with the same components as the published post, after sanitising — this is what a reader will see.</span>
+              ) : (
+                <span>Write here, or switch to HTML Source to paste your own markup.</span>
+              )}
+              <span className="ml-auto tabular-nums">
+                {bodyChars.toLocaleString()} chars · {readTime} read
+                {bodyChars > 0 && bodyChars < MIN_ARTICLE_CHARS && (
+                  <span className="text-amber-600"> · needs {MIN_ARTICLE_CHARS - bodyChars} more</span>
+                )}
+              </span>
+            </div>
+          </section>
+
+          {errors.blocks && (
+            <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-bold text-rose-700">
+              <AlertCircle size={14} className="mt-px flex-none" aria-hidden="true" /> {errors.blocks}
             </p>
-          </aside>
-        </div>
+          )}
+          {formError && (
+            <p role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">
+              <AlertCircle size={16} className="mt-px flex-none" aria-hidden="true" /> {formError}
+            </p>
+          )}
+
+          <p className="flex items-start gap-2 text-[11px] font-medium text-slate-400 leading-relaxed">
+            <ShieldCheck size={13} className="mt-0.5 flex-none text-slate-300" aria-hidden="true" />
+            Submissions are held for editorial review. Nothing is published to the site automatically, and
+            submitted markup is sanitised before it is ever rendered.
+          </p>
+        </main>
+
+        {/* ── Inspector ── */}
+        <aside
+          className={`xl:w-[22rem] xl:flex-none xl:border-l xl:border-t-0 border-t border-slate-200 bg-white ${inspectorOpen ? 'block' : 'hidden xl:block'}`}
+          aria-label="Article settings"
+        >
+          <div className="xl:h-full xl:overflow-y-auto">
+            <div className="hidden xl:flex items-center gap-2 px-5 py-3.5 border-b border-slate-100">
+              <ChevronDown size={13} className="text-emerald-600" aria-hidden="true" />
+              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Article settings</h2>
+            </div>
+            <Inspector
+              errors={errors}
+              configured={configured}
+              image={image}
+              previewUrl={previewUrl}
+              uploading={uploading}
+              uploadError={uploadError}
+              onPickImage={() => fileRef.current?.click()}
+              onClearImage={() => setImage('')}
+              category={category}
+              setCategory={setCategory}
+              tagsRaw={tagsRaw}
+              setTagsRaw={setTagsRaw}
+              tagCount={tags.length}
+              author={author}
+              setAuthor={setAuthor}
+              authorRole={authorRole}
+              setAuthorRole={setAuthorRole}
+              submitterEmail={submitterEmail}
+              setSubmitterEmail={setSubmitterEmail}
+              date={date}
+              setDate={setDate}
+              readTimeOverride={readTimeOverride}
+              setReadTimeOverride={setReadTimeOverride}
+              estimatedReadTime={estimatedReadTime}
+              slug={slug}
+              onSlugChange={(v) => { setSlugTouched(true); setSlug(slugify(v)); }}
+              slugStatus={slugStatus}
+              seoTitle={seoTitle}
+              setSeoTitle={setSeoTitle}
+              seoDescription={seoDescription}
+              setSeoDescription={setSeoDescription}
+            />
+          </div>
+        </aside>
       </div>
-    </div>
+    </form>
   );
 };
 

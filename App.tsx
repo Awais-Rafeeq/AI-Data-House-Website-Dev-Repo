@@ -56,7 +56,6 @@ import { sendToN8n, ACTIONS } from './lib/n8n';
 import SolutionPage from './pages/SolutionPage';
 import IndustryPage from './pages/IndustryPage';
 import { BlogIndexPage, BlogPostPage } from './pages/BlogPages';
-import BlogSubmitPage from './pages/BlogSubmitPage';
 import { CaseStudyIndexPage, CaseStudyDetailPage } from './pages/CaseStudyPages';
 import { AboutPage, ContactPage, LegalPage, NotFoundPage } from './pages/StaticPages';
 import CommercialPage from './pages/CommercialPage';
@@ -67,6 +66,9 @@ import { ToolsIndexPage, ToolPage } from './pages/ToolsPages';
 const ROICalculator = lazy(() => import('./components/ROICalculator'));
 const RestaurantAgent = lazy(() => import('./components/RestaurantAgent'));
 const JobDashboard = lazy(() => import('./components/JobDashboard'));
+// The submission studio pulls in a rich-text editor and a code editor. Readers
+// of the blog should never download either, so the whole route is split out.
+const BlogSubmitPage = lazy(() => import('./pages/BlogSubmitPage'));
 import { SOLUTIONS } from './data/solutions';
 import { INDUSTRIES } from './data/industries';
 import { useSeo, breadcrumbJsonLd } from './lib/seo';
@@ -1108,6 +1110,10 @@ const App: React.FC = () => {
   // Special full-screen routes (no header/footer). Lazy-loaded under Suspense.
   if (location.pathname === '/dashboard') return <Suspense fallback={<RouteFallback />}><JobDashboard /></Suspense>;
   if (location.pathname === '/solutions/restaurant-ai') return <Suspense fallback={<RouteFallback />}><RestaurantAgent /></Suspense>;
+  // The submission studio is a workspace, not a page: it carries its own top
+  // bar (back link, draft state, submit) and needs the full viewport for the
+  // editor/preview split, so it takes the same treatment as the dashboard.
+  if (location.pathname === '/resources/blog/submit') return <Suspense fallback={<RouteFallback />}><BlogSubmitPage /></Suspense>;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-emerald-100 selection:text-emerald-900">

@@ -2,6 +2,15 @@
 // Source of truth: BLOG_SECTION_PLAN.md (2026-06-24). 6 full posts written from the
 // locked outlines; remaining planned posts listed as upcoming in the index.
 
+/**
+ * `mode` only changes how an html block is *styled*, never how it is trusted —
+ * both are sanitised identically. 'editorial' came out of the studio's visual
+ * editor, so it is a known element set and gets the blog's own prose styling.
+ * 'custom' was written or pasted as HTML source and may carry its own inline
+ * layout, so the renderer keeps its styling hands off it.
+ */
+export type HtmlBlockMode = 'editorial' | 'custom';
+
 export type Block =
   | { type: 'p'; text: string }
   | { type: 'h2'; text: string }
@@ -11,7 +20,11 @@ export type Block =
   | { type: 'quote'; text: string }
   // Internal-link block: powers pillar/cluster linking. Renders as a card list of
   // real <a href> anchors (crawlable) that also navigate client-side.
-  | { type: 'links'; title?: string; items: { label: string; href: string }[] };
+  | { type: 'links'; title?: string; items: { label: string; href: string }[] }
+  // A whole article body as one HTML string, written in the submission studio.
+  // The string is stored as the author wrote it and sanitised at render time
+  // (lib/htmlSanitize.ts) — never trusted, whatever wrote the row.
+  | { type: 'html'; html: string; mode?: HtmlBlockMode };
 
 export interface Post {
   slug: string;

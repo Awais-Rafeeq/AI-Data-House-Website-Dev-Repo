@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import type { Block } from '../../data/blog';
 import { isSafeHref } from '../../lib/blogSanitize';
+import { headingIdOf } from '../../lib/articleHeadings';
+import { extractHeadings, sanitizeArticleHtml } from '../../lib/htmlSanitize';
 
 /**
  * The one article renderer. The published post page and the live preview on the
@@ -36,7 +38,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ blocks, onCta }) => {
             return (
               <h2
                 key={i}
-                id={headingId(b.text)}
+                id={headingIdOf(b.text)}
                 className="scroll-mt-28 text-[1.6rem] md:text-[2rem] font-black text-slate-900 leading-[1.2] tracking-tight mt-14 mb-5 first:mt-0"
               >
                 {b.text}
@@ -131,6 +133,8 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ blocks, onCta }) => {
               </div>
             );
           }
+          case 'html':
+            return <ArticleHtml key={i} html={b.html} mode={b.mode} />;
           default:
             return null;
         }
@@ -139,13 +143,51 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ blocks, onCta }) => {
   );
 };
 
-/** Stable anchor id for an h2, so the table of contents can jump to it. */
-export const headingId = (text: string): string =>
-  `s-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)}`;
+/**
+ * An article body that was authored as HTML rather than as structured blocks.
+ *
+ * This is the only place in the app where submitted content becomes real
+ * markup, so it is sanitised here, at render time, on every render — not once
+ * on the way into the database. A row can be written by something other than
+ * the studio (the anon key is public), so what is stored is treated as input,
+ * never as output.
+ *
+ * `mode` decides styling only, never trust. An 'editorial' body came out of the
+ * visual editor, so it is a known element set and gets the blog's own prose
+ * styling. A 'custom' body was written as HTML source and may carry its own
+ * inline layout, so it only gets a light baseline and is left to look like
+ * itself — see `.article-html` in index.css.
+ */
+const ArticleHtml: React.FC<{ html: string; mode?: 'editorial' | 'custom' }> = ({ html, mode }) => {
+  const clean = useMemo(() => sanitizeArticleHtml(html), [html]);
+  return (
+    <div
+      className={`article-html${mode === 'custom' ? ' article-html-custom' : ''}`}
+      // Safe by construction: `clean` is the output of sanitizeArticleHtml,
+      // which allowlists tags, attributes and URI schemes. Never pass anything
+      // else to this prop.
+      dangerouslySetInnerHTML={{ __html: clean }}
+    />
+  );
+};
 
-/** The h2s of a post, in order — the table of contents' source. */
+/** Stable anchor id for a heading. Re-exported from lib so the HTML sanitiser
+ *  and this renderer can never drift apart on what an anchor is called. */
+export const headingId = headingIdOf;
+
+/** The headings of a post, in order — the table of contents' source. Works for
+ *  both shapes: structured h2 blocks, and the h2/h3s inside an HTML body. */
 export const tableOfContents = (blocks: Block[]): { id: string; text: string }[] =>
-  blocks.filter((b): b is Extract<Block, { type: 'h2' }> => b.type === 'h2')
-    .map((b) => ({ id: headingId(b.text), text: b.text }));
+  blocks.flatMap((b) => {
+    if (b.type === 'h2') return [{ id: headingIdOf(b.text), text: b.text }];
+    // Read the ids off the sanitised output rather than recomputing them, so
+    // the links always point at anchors that were actually rendered.
+    if (b.type === 'html') {
+      return extractHeadings(sanitizeArticleHtml(b.html))
+        .filter((h) => h.level === 2)
+        .map((h) => ({ id: h.id, text: h.text }));
+    }
+    return [];
+  }).filter((h) => h.id);
 
 export default BlockRenderer;

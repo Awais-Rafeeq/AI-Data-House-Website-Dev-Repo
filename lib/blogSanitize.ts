@@ -15,8 +15,14 @@ export type SubmittableBlockType = typeof BLOCK_TYPES_ALLOWED[number];
  * deliberately excluded: a callout renders a CTA button that navigates into our
  * funnel, and a links block is an open invitation to inject SEO backlinks. Both
  * stay editorial-only. Anything else that somehow arrives is dropped on read.
+ *
+ * `html` is submittable but is NOT one of the structured types above: it carries
+ * a whole article body as a single HTML string, which is what the submission
+ * studio writes. It is deliberately handled apart from them everywhere.
  */
-const SUBMITTABLE = new Set<string>(BLOCK_TYPES_ALLOWED);
+const SUBMITTABLE = new Set<string>([...BLOCK_TYPES_ALLOWED, 'html']);
+
+const HTML_MODES = new Set(['editorial', 'custom']);
 
 // ─── Text hygiene ────────────────────────────────────────────────────────────
 /**
@@ -47,7 +53,42 @@ export const LIMITS = {
   blockText: 4000,
   listItem: 500,
   cell: 200,
+  /**
+   * Ceiling for a whole article written as HTML. Kept well under the table's
+   * `pg_column_size(blocks) < 200000` CHECK, since the string is stored inside
+   * a jsonb array and JSON escaping inflates it.
+   */
+  html: 120000,
 } as const;
+
+/**
+ * Text hygiene for an HTML body. Unlike cleanText this must NOT collapse
+ * whitespace or trim aggressively — inside <pre> that would change what the
+ * author wrote — so it only strips the control and bidi characters that exist
+ * to spoof, and caps the length.
+ */
+export const cleanHtml = (value: unknown, max: number): string =>
+  String(value ?? '')
+    // The same C0/C1 + bidi set cleanText strips, but newlines and tabs are
+    // left alone: inside <pre> they are content, not formatting.
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/\r\n?/g, '\n')
+    .slice(0, max);
+
+/**
+ * Rough text content of an HTML string, for word counts and "is this empty"
+ * checks ONLY. This is not a sanitiser and must never be used as one: tag
+ * stripping by regex is exactly the mistake that lets markup through. The
+ * security boundary is DOMPurify in lib/htmlSanitize.ts, at render time.
+ */
+export const htmlToPlainText = (html: string): string =>
+  html
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&[a-z0-9#]{1,8};/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /**
  * Normalise arbitrary input into the block union, dropping anything that is not
@@ -63,6 +104,20 @@ export function sanitizeBlocks(input: unknown): Block[] {
     const type = (raw as { type?: unknown }).type;
     if (typeof type !== 'string' || !SUBMITTABLE.has(type)) continue;
     const b = raw as Record<string, unknown>;
+
+    if (type === 'html') {
+      // Structural only. The tag/attribute scrub is DOMPurify's job at render
+      // time (lib/htmlSanitize.ts) — this module stays DOM-free so the security
+      // tests can run under plain Node, and a regex "sanitiser" here would only
+      // buy false confidence. All this does is bound the size and drop a body
+      // with no actual words in it.
+      const html = cleanHtml(b.html, LIMITS.html);
+      if (htmlToPlainText(html)) {
+        const mode = typeof b.mode === 'string' && HTML_MODES.has(b.mode) ? b.mode : 'editorial';
+        out.push({ type: 'html', html, mode } as Block);
+      }
+      continue;
+    }
 
     if (type === 'p' || type === 'h2' || type === 'quote') {
       const text = cleanText(b.text, LIMITS.blockText);
@@ -125,9 +180,17 @@ export function estimateReadTime(blocks: Block[]): string {
     if (b.type === 'p' || b.type === 'h2' || b.type === 'quote') words += b.text.split(/\s+/).length;
     else if (b.type === 'list') words += b.items.join(' ').split(/\s+/).length;
     else if (b.type === 'table') words += [...b.head, ...b.rows.flat()].join(' ').split(/\s+/).length;
+    else if (b.type === 'html') {
+      const text = htmlToPlainText(b.html);
+      if (text) words += text.split(/\s+/).length;
+    }
   }
   return `${Math.max(1, Math.round(words / WPM))} min`;
 }
+
+/** The article body written as one HTML string, if that is how it was authored. */
+export const htmlBlockOf = (blocks: Block[]): Extract<Block, { type: 'html' }> | undefined =>
+  blocks.find((b): b is Extract<Block, { type: 'html' }> => b.type === 'html');
 
 export const FALLBACK_IMAGE = '/images/blog/blog-featured-cornerstone.png';
 
@@ -161,6 +224,9 @@ export type FieldErrors = Partial<Record<keyof SubmissionDraft | 'form', string>
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+/** Shortest body we will take, measured in visible characters, not markup. */
+export const MIN_ARTICLE_CHARS = 120;
+
 /** Field-level validation for the form. Mirrors the database constraints. */
 export function validateDraft(draft: SubmissionDraft): FieldErrors {
   const e: FieldErrors = {};
@@ -185,8 +251,18 @@ export function validateDraft(draft: SubmissionDraft): FieldErrors {
   if (draft.seoDescription.length > LIMITS.seoDescription) e.seoDescription = `SEO descriptions are capped at ${LIMITS.seoDescription} characters.`;
 
   const blocks = sanitizeBlocks(draft.blocks);
-  if (blocks.length === 0) e.blocks = 'The article needs at least one paragraph.';
-  else if (!blocks.some((b) => b.type === 'p')) e.blocks = 'Add at least one paragraph of body text.';
+  const html = htmlBlockOf(blocks);
+  if (blocks.length === 0) {
+    e.blocks = 'The article needs at least one paragraph.';
+  } else if (html) {
+    // An HTML body carries its own structure, so the "must contain a paragraph"
+    // rule does not apply — but it does still have to contain actual writing.
+    if (htmlToPlainText(html.html).length < MIN_ARTICLE_CHARS) {
+      e.blocks = `The article body is too short — write at least ${MIN_ARTICLE_CHARS} characters.`;
+    }
+  } else if (!blocks.some((b) => b.type === 'p')) {
+    e.blocks = 'Add at least one paragraph of body text.';
+  }
 
   return e;
 }
