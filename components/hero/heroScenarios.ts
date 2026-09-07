@@ -49,6 +49,16 @@ export const HERO_SECONDARY_CTA: HeroCta = { label: 'See real results', href: '#
 // the description as the solution and outcome. Never generic hero copy.
 export const HERO_SCENARIOS: HeroScenario[] = [
   {
+    id: 'lead-automation-make-inspired',
+    eyebrow: 'Lead Automation',
+    heading: 'A new lead should not wait for a human handoff.',
+    description: 'AI Data House turns every form fill into a live workflow: CRM saved, AI call started, meeting booked, notes updated, and your team notified.',
+    animation: {
+      src: '/hero-animations/make-inspired-lead-automation.html',
+      title: 'Automated lead workflow from Facebook lead to CRM, AI call, appointment booking, saved notes and email notification',
+    },
+  },
+  {
     id: 'speed-to-lead',
     eyebrow: 'Speed to Lead',
     heading: 'Leads go cold before anyone replies.',

@@ -22,7 +22,7 @@ g.Element = dom.window.Element;
 g.HTMLElement = dom.window.HTMLElement;
 
 // Imported after the globals exist, for the reason above.
-const { sanitizeArticleHtml, extractHeadings, isBeyondEditorial, isFullDocument, extractBodyHtml } =
+const { sanitizeArticleHtml, extractHeadings, isBeyondEditorial, isFullDocument, extractBodyHtml, buildPreviewDocument, normalizeArticleImageSrc, normalizeArticleImages } =
   await import('../lib/htmlSanitize');
 
 let passed = 0;
@@ -138,6 +138,34 @@ ok('keeps the text inside a stripped element',
   const out = sanitizeArticleHtml('<img src="https://example.com/a.png">');
   ok('images are lazy-loaded and do not leak a referrer',
     out.includes('loading="lazy"') && out.includes('referrerpolicy="no-referrer"'));
+}
+{
+  const publicImageUrl = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee';
+  const imagePageUrl = 'https://unsplash.com';
+  const out = sanitizeArticleHtml(`<img src="${publicImageUrl}" alt="Coding on a laptop">`);
+  ok('direct public image URLs are preserved',
+    out.includes(`src="${publicImageUrl}"`));
+  ok('known image page placeholders are repaired to real image URLs',
+    sanitizeArticleHtml(`<img src="${imagePageUrl}" alt="Coding on a laptop">`).includes(`src="${publicImageUrl}"`));
+  ok('Markdown-wrapped image URLs are unwrapped before preview',
+    sanitizeArticleHtml(`<img src="[${publicImageUrl}](${publicImageUrl})" alt="x">`).includes(`src="${publicImageUrl}"`));
+  ok('Markdown-wrapped image page placeholders are repaired before preview',
+    sanitizeArticleHtml(`<img src="[${imagePageUrl}](${imagePageUrl})" alt="x">`).includes(`src="${publicImageUrl}"`));
+  check('relative image folder paths become site-root image paths',
+    normalizeArticleImageSrc('images/blog/blog-featured-cornerstone.png'),
+    '/images/blog/blog-featured-cornerstone.png');
+  check('Markdown-wrapped image paths normalize to the linked URL',
+    normalizeArticleImageSrc(`[${publicImageUrl}](${publicImageUrl})`),
+    publicImageUrl);
+  check('Markdown-wrapped image page placeholders normalize to a real image',
+    normalizeArticleImageSrc(`[${imagePageUrl}](${imagePageUrl})`),
+    publicImageUrl);
+  ok('unsafe image URLs still use the fallback',
+    normalizeArticleImageSrc('data:text/html;base64,PHNjcmlwdD4=') === '/images/blog/blog-featured-cornerstone.png');
+  ok('HTML-source result preview preserves public image URLs',
+    buildPreviewDocument(`<img src="${publicImageUrl}" alt="x">`, '').includes(`src="${publicImageUrl}"`));
+  ok('editor state image repair preserves public image URLs',
+    normalizeArticleImages(`<img src="${publicImageUrl}" alt="x">`).includes(`src="${publicImageUrl}"`));
 }
 
 // ─── Full documents ──────────────────────────────────────────────────────────

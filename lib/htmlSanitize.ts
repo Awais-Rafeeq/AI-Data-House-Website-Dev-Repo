@@ -18,6 +18,7 @@
 
 import DOMPurify from 'dompurify';
 import { headingIdOf } from './articleHeadings';
+import { FALLBACK_IMAGE } from './blogSanitize';
 import { scopeCss } from './cssScope';
 
 /**
@@ -97,6 +98,19 @@ const PURIFY_CONFIG = {
   RETURN_DOM_FRAGMENT: false as const,
 };
 
+const GENERIC_UNSPLASH_IMAGE_URL = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee';
+const IMAGE_PAGE_HOST_REPAIRS = new Map([
+  ['unsplash.com', GENERIC_UNSPLASH_IMAGE_URL],
+  ['www.unsplash.com', GENERIC_UNSPLASH_IMAGE_URL],
+]);
+
+function normalizeUrlAttributeValue(value: string): string {
+  const stripped = value.trim().replace(/[\u0000-\u0020\u00a0\u200b-\u200f\ufeff]/g, '');
+  const markdownLink = stripped.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/i);
+  if (markdownLink) return markdownLink[2];
+  return stripped;
+}
+
 let hooksInstalled = false;
 
 /**
@@ -109,6 +123,16 @@ let hooksInstalled = false;
 function installHooks() {
   if (hooksInstalled) return;
   hooksInstalled = true;
+
+  DOMPurify.addHook('beforeSanitizeAttributes', (node) => {
+    if (!(node instanceof Element)) return;
+    for (const attr of URL_ATTRS) {
+      const value = node.getAttribute(attr);
+      if (value === null) continue;
+      const normalized = normalizeUrlAttributeValue(value);
+      if (normalized !== value) node.setAttribute(attr, normalized);
+    }
+  });
 
   DOMPurify.addHook('afterSanitizeAttributes', (node) => {
     if (!(node instanceof Element)) return;
@@ -123,8 +147,12 @@ function installHooks() {
       if (value === null) continue;
       // Strip control characters and whitespace before testing, so `java\nscript:`
       // and friends cannot smuggle a scheme past the allowlist.
-      const trimmed = value.replace(/[\u0000-\u0020\u00a0\u200b-\u200f\ufeff]/g, '');
-      if (!ALLOWED_URI_REGEXP.test(trimmed)) node.removeAttribute(attr);
+      const trimmed = normalizeUrlAttributeValue(value);
+      if (!ALLOWED_URI_REGEXP.test(trimmed)) {
+        node.removeAttribute(attr);
+      } else if (trimmed !== value) {
+        node.setAttribute(attr, trimmed);
+      }
     }
 
     if (node.tagName === 'A') {
@@ -140,6 +168,10 @@ function installHooks() {
     }
 
     if (node.tagName === 'IMG') {
+      const src = node.getAttribute('src') || '';
+      const normalized = normalizeArticleImageSrc(src);
+      node.setAttribute('src', normalized);
+      if (normalized === FALLBACK_IMAGE) node.removeAttribute('srcset');
       // Submitted images are third-party bytes on our page; never let one block
       // first paint, and never leak the reader's referrer to wherever it lives.
       node.setAttribute('loading', 'lazy');
@@ -147,6 +179,46 @@ function installHooks() {
       node.setAttribute('referrerpolicy', 'no-referrer');
     }
   });
+}
+
+/**
+ * Keep author-provided public images intact while still refusing unsafe image
+ * sources. Some pasted HTML uses image CDNs without file extensions, query
+ * strings, or redirects, so extension sniffing would incorrectly replace valid
+ * images with the article fallback. If an image points at a known image-site
+ * page instead of an image asset, repair it to a real public image so the
+ * editor shows a picture rather than a broken alt label.
+ */
+export function normalizeArticleImageSrc(value: string): string {
+  const trimmed = normalizeUrlAttributeValue(value);
+  if (!trimmed) return FALLBACK_IMAGE;
+  if (/^\/images\/[\w\-./]+$/i.test(trimmed)) return trimmed;
+  if (/^\.?\/?images\//i.test(trimmed)) return `/${trimmed.replace(/^\.?\//, '')}`;
+
+  try {
+    const url = new URL(trimmed);
+    if (!/^https?:$/i.test(url.protocol)) return FALLBACK_IMAGE;
+    const repairedPageImage = IMAGE_PAGE_HOST_REPAIRS.get(url.hostname.toLowerCase());
+    if (repairedPageImage) return repairedPageImage;
+    return trimmed;
+  } catch {
+    return FALLBACK_IMAGE;
+  }
+}
+
+export function normalizeArticleImages(html: string): string {
+  if (!/<img[\s>]/i.test(html)) return html;
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('img').forEach((img) => {
+      const normalized = normalizeArticleImageSrc(img.getAttribute('src') || '');
+      img.setAttribute('src', normalized);
+      if (normalized === FALLBACK_IMAGE) img.removeAttribute('srcset');
+    });
+    return isFullDocument(html) ? `<!doctype html>${doc.documentElement.outerHTML}` : doc.body.innerHTML;
+  } catch {
+    return html;
+  }
 }
 
 /**
@@ -309,9 +381,10 @@ export function buildPreviewDocument(html: string, styles: string): string {
   // show the author is exactly what they wrote, including their own stylesheet.
   // Wrapping it in our chrome instead — which is what dropping the head did —
   // showed them a page stripped of its design and called it a preview.
-  if (isFullDocument(html)) return html;
+  if (isFullDocument(html)) return normalizeArticleImages(html);
+  const previewHtml = normalizeArticleImages(html);
 
   return `<!doctype html><html><head><meta charset="utf-8">`
     + `<meta name="viewport" content="width=device-width,initial-scale=1">`
-    + `<style>${styles}</style></head><body><article class="article-html">${html}</article></body></html>`;
+    + `<style>${styles}</style></head><body><article class="article-html">${previewHtml}</article></body></html>`;
 }

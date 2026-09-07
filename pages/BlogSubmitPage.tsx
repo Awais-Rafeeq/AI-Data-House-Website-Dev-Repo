@@ -7,7 +7,7 @@ import {
 import type { Block } from '../data/blog';
 import { useSeo, breadcrumbJsonLd } from '../lib/seo';
 import { invalidateBlogCache } from '../lib/useBlogPosts';
-import { isBeyondEditorial, isFullDocument } from '../lib/htmlSanitize';
+import { isBeyondEditorial, isFullDocument, normalizeArticleImages } from '../lib/htmlSanitize';
 import {
   IMAGE_MAX_BYTES, IMAGE_MIME_TYPES, LIMITS, MIN_ARTICLE_CHARS, estimateReadTime,
   formatDateLabel, htmlToPlainText, isBlogStoreConfigured, isSlugAvailable, resolveImageType,
@@ -83,6 +83,9 @@ const BlogSubmitPage: React.FC = () => {
   // the visual tab and the source tab, so switching between them is two views
   // of one value rather than two documents to reconcile. ──
   const [bodyHtml, setBodyHtml] = useState('');
+  const setArticleHtml = useCallback((next: string) => {
+    setBodyHtml(normalizeArticleImages(next));
+  }, []);
 
   // Bots fill hidden fields; humans never see this one.
   const [honeypot, setHoneypot] = useState('');
@@ -179,7 +182,7 @@ const BlogSubmitPage: React.FC = () => {
       setReadTimeOverride(d.readTimeOverride || ''); setImage(d.image || '');
       setSlug(d.slug || ''); setSlugTouched(Boolean(d.slugTouched));
       setSeoTitle(d.seoTitle || ''); setSeoDescription(d.seoDescription || '');
-      setBodyHtml(d.bodyHtml || '');
+      setBodyHtml(normalizeArticleImages(d.bodyHtml || ''));
       setDraftSavedAt(d.savedAt || null);
       setDraftRestored(true);
     } catch {
@@ -318,13 +321,10 @@ const BlogSubmitPage: React.FC = () => {
     }`;
 
   return (
-    // On a wide screen the studio is a fixed workspace: exactly one viewport
-    // tall, with the editor and inspector scrolling inside it. Without the
-    // bounded height the editors size themselves to their content instead, and
-    // a long document turns the whole page into one enormous scroll. Narrow
-    // screens keep ordinary page scrolling, which is the better behaviour on a
-    // phone and avoids fighting mobile browser chrome.
-    <form onSubmit={handleSubmit} noValidate className="min-h-screen xl:h-screen xl:overflow-hidden bg-slate-50 flex flex-col">
+    // The studio scrolls as one page on every viewport. The editor still gets
+    // a definite minimum height, so CodeMirror/Tiptap can fill the workspace
+    // without trapping the rest of the form behind an overflow-hidden shell.
+    <form onSubmit={handleSubmit} noValidate className="min-h-screen bg-slate-50 flex flex-col">
       {/* Honeypot: off-screen, not display:none, so bots still fill it. */}
       <div aria-hidden="true" className="absolute -left-[9999px] top-0 h-px w-px overflow-hidden">
         <label htmlFor="company-website">Company website</label>
@@ -422,11 +422,11 @@ const BlogSubmitPage: React.FC = () => {
       </header>
 
       {/* ── Workspace ── */}
-      <div className="flex-1 min-h-0 flex flex-col xl:flex-row">
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col p-4 sm:p-6 xl:p-8 gap-5 xl:overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col xl:flex-row xl:items-start">
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col p-4 sm:p-5 xl:p-6 gap-5">
 
           {/* Title + summary stay above the editor: they are the article, not settings. */}
-          <div className="flex-none rounded-2xl border border-slate-200 bg-white p-5 sm:p-7">
+          <div className="flex-none rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
             <label htmlFor="f-title" className="sr-only">Title</label>
             <input
               id="f-title"
@@ -434,7 +434,7 @@ const BlogSubmitPage: React.FC = () => {
               onChange={(e) => setTitle(e.target.value)}
               maxLength={LIMITS.title}
               placeholder="How we cut a 6-hour reporting job to 4 minutes"
-              className="w-full text-2xl sm:text-[2rem] font-black tracking-tight text-slate-900 placeholder:text-slate-300 bg-transparent outline-none leading-tight"
+              className="w-full text-2xl sm:text-[1.8rem] font-black tracking-tight text-slate-900 placeholder:text-slate-300 bg-transparent outline-none leading-tight"
             />
             <label htmlFor="f-excerpt" className="sr-only">Summary</label>
             <textarea
@@ -444,7 +444,7 @@ const BlogSubmitPage: React.FC = () => {
               maxLength={LIMITS.excerpt}
               rows={2}
               placeholder="Two or three sentences on what the reader gets out of this. Shown on the blog card and used as the meta description."
-              className="mt-3 w-full resize-none text-base text-slate-500 font-medium leading-relaxed placeholder:text-slate-300 bg-transparent outline-none"
+              className="mt-2 w-full resize-y min-h-16 text-base text-slate-500 font-medium leading-relaxed placeholder:text-slate-300 bg-transparent outline-none"
             />
             <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-x-5 gap-y-1 text-[11px] font-bold">
               <span className={title.length >= 10 ? 'text-slate-400' : 'text-slate-300'}>
@@ -460,7 +460,7 @@ const BlogSubmitPage: React.FC = () => {
           </div>
 
           {/* Editor card */}
-          <section className="flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white flex flex-col overflow-hidden">
+          <section className="h-[42rem] sm:h-[46rem] xl:h-[calc(100vh-8rem)] xl:min-h-[42rem] rounded-2xl border border-slate-200 bg-white flex flex-col overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 border-b border-slate-200 bg-slate-50/70">
               <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100">
                 <button type="button" onClick={() => goToWorkspace('write')} className={tabCls(workspace === 'write')}>
@@ -530,10 +530,10 @@ const BlogSubmitPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex-1 min-h-[26rem] xl:min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-[30rem] overflow-hidden">
               {workspace === 'write' && (
                 <Suspense fallback={<EditorFallback />}>
-                  <VisualEditor html={bodyHtml} onChange={setBodyHtml} onError={setUploadError} />
+                  <VisualEditor html={bodyHtml} onChange={setArticleHtml} onError={setUploadError} />
                 </Suspense>
               )}
 
@@ -542,7 +542,7 @@ const BlogSubmitPage: React.FC = () => {
                   {splitMode !== 'output' && (
                     <div className="min-h-[18rem] md:min-h-0 h-full overflow-hidden">
                       <Suspense fallback={<EditorFallback />}>
-                        <HtmlSourceEditor value={bodyHtml} onChange={setBodyHtml} ariaLabel="Article HTML source" />
+                        <HtmlSourceEditor value={bodyHtml} onChange={setArticleHtml} ariaLabel="Article HTML source" />
                       </Suspense>
                     </div>
                   )}
@@ -597,10 +597,10 @@ const BlogSubmitPage: React.FC = () => {
 
         {/* ── Inspector ── */}
         <aside
-          className={`xl:w-[22rem] xl:flex-none xl:border-l xl:border-t-0 border-t border-slate-200 bg-white ${inspectorOpen ? 'block' : 'hidden xl:block'}`}
+          className={`xl:w-[25rem] xl:flex-none xl:sticky xl:top-16 xl:max-h-[calc(100vh-4rem)] xl:overflow-y-auto xl:border-l xl:border-t-0 border-t border-slate-200 bg-white ${inspectorOpen ? 'block' : 'hidden xl:block'}`}
           aria-label="Article settings"
         >
-          <div className="xl:h-full xl:overflow-y-auto">
+          <div>
             <div className="hidden xl:flex items-center gap-2 px-5 py-3.5 border-b border-slate-100">
               <ChevronDown size={13} className="text-emerald-600" aria-hidden="true" />
               <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Article settings</h2>

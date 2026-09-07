@@ -52,12 +52,16 @@ const ReviewCard: React.FC<{ item: Testimonial; clone?: boolean }> = ({ item, cl
   // Clutch names the client, Upwork only the contract — so each is announced by
   // whatever its source actually publishes.
   const subject = item.source === 'clutch' ? item.client : item.project;
+  const releaseFocus = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.currentTarget.blur();
+  };
   return (
   <a
     className={`testimonial-card tst-card tst-card-${item.source}`}
     href={item.href}
     target="_blank"
     rel="noopener noreferrer"
+    onClick={releaseFocus}
     tabIndex={clone ? -1 : undefined}
     aria-label={clone ? undefined : `Read the ${subject} review on ${SOURCE_LABEL[item.source]}`}
   >

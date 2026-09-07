@@ -10,8 +10,28 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-*.local
+
+# Environment secrets and local-only config
 .env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+
+# Local tool state
+.serena/
+
+# Local Supabase CLI/project state. Keep supabase/migrations tracked.
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+supabase/.env.*
+!supabase/.env.example
+!supabase/.env.*.example
+
+# One-off local smoke scripts can use real backend credentials through .env.local.
+scripts/smoke-*.mjs
+scripts/smoke-*.ts
 
 # Editor directories and files
 .vscode/*

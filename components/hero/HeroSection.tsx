@@ -34,7 +34,9 @@ const VisualLayer = React.memo(function VisualLayer({
   const Visual = scenario.Visual;
   return (
     <div className={`flow-layer${active ? ' is-active' : ''}`} ref={layerRef}>
-      {scenario.animation ? <HeroHtmlAnimation {...scenario.animation} /> : Visual ? <Visual /> : null}
+      <div className={`flow${scenario.animation ? ' flow-animation' : ''}`}>
+        {scenario.animation ? <HeroHtmlAnimation {...scenario.animation} /> : Visual ? <Visual /> : null}
+      </div>
     </div>
   );
 });
@@ -190,17 +192,15 @@ const HeroSection: React.FC = () => {
               </div>
             </div>
 
-            <div className="flow">
-              <div className="flow-layers">
-                {HERO_SCENARIOS.map((s, i) => (
-                  <VisualLayer
-                    key={s.id}
-                    scenario={s}
-                    active={i === activeFallback}
-                    layerRef={setVisualRef[i]}
-                  />
-                ))}
-              </div>
+            <div className="flow-layers hero-flow-layers">
+              {HERO_SCENARIOS.map((s, i) => (
+                <VisualLayer
+                  key={s.id}
+                  scenario={s}
+                  active={i === activeFallback}
+                  layerRef={setVisualRef[i]}
+                />
+              ))}
             </div>
           </div>
         </section>

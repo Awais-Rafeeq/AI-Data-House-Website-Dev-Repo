@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Data House — Premium Lead Automation Hero</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --ink:#10131a;
+    --ink-2:#313846;
+    --muted:#697386;
+    --border:#e8eaf0;
+    --line:#d9ddea;
+    --facebook:#1877f2;
+    --ghl:#25a06f;
+    --vapi:#6657ef;
+    --calendar:#3478f6;
+    --notes:#0f9d72;
+    --mail:#e1524a;
+    --success:#19a66f;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;background:transparent;font-family:Inter,Geist,"SF Pro Display","SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;display:grid;place-items:center;padding:0}
+
+  .hero-visual{
+    width:100vw;
+    max-width:100vh;
+    aspect-ratio:1;
+    position:relative;
+    overflow:hidden;
+    isolation:isolate;
+    border-radius:34px;
+    background:
+      radial-gradient(58% 48% at 86% 8%,rgba(109,91,255,.10),transparent 68%),
+      radial-gradient(50% 45% at 5% 92%,rgba(36,161,255,.085),transparent 70%),
+      radial-gradient(35% 30% at 50% 48%,rgba(255,220,192,.16),transparent 74%),
+      #fff;
+    border:1px solid rgba(223,226,235,.88);
+    box-shadow:0 35px 90px rgba(18,25,38,.09),0 10px 28px rgba(18,25,38,.045),inset 0 1px 0 rgba(255,255,255,1);
+    container-type:inline-size;
+  }
+
+  .hero-visual::before{
+    content:"";
+    position:absolute;inset:0;
+    background-image:radial-gradient(circle at center,rgba(65,76,98,.18) .65px,transparent .75px);
+    background-size:22px 22px;
+    opacity:.20;
+    mask-image:radial-gradient(circle at 50% 50%,#000 0 54%,transparent 86%);
+    pointer-events:none;z-index:-4;
+  }
+
+  .hero-visual::after{
+    content:"";
+    position:absolute;inset:-20%;
+    background:conic-gradient(from 200deg at 50% 50%,transparent 0 72%,rgba(255,255,255,.66) 78%,transparent 84% 100%);
+    animation:ambientSweep 14s linear infinite;
+    opacity:.45;pointer-events:none;z-index:-3;
+  }
+  @keyframes ambientSweep{to{transform:rotate(360deg)}}
+
+  .topbar{
+    position:absolute;left:5.5%;right:5.5%;top:4.7%;z-index:20;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .tiny-brand{display:flex;align-items:center;gap:9px;color:#4b5565;font-size:clamp(7.5px,1.27cqi,9.7px);font-weight:740;letter-spacing:.09em;text-transform:uppercase}
+  .tiny-brand .spark{width:18px;height:18px;border-radius:6px;background:#111827;color:#fff;display:grid;place-items:center;box-shadow:0 5px 12px rgba(17,24,39,.14)}
+  .tiny-brand .spark svg{width:10px;height:10px}
+  .live{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;border:1px solid #e4e7ee;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);font-size:clamp(7.2px,1.22cqi,9.2px);font-weight:670;color:#505968;box-shadow:0 4px 15px rgba(26,34,48,.045)}
+  .live::before{content:"";width:6px;height:6px;border-radius:50%;background:#2bb27a;box-shadow:0 0 0 4px rgba(43,178,122,.11)}
+
+  .scene{
+    position:absolute;inset:11% 4.5% 5.5% 4.5%;
+    perspective:1200px;
+    z-index:3;
+  }
+
+  .canvas{
+    position:absolute;inset:4% 2% 3% 2%;
+    border-radius:30px;
+    transform:rotateX(5deg) rotateY(-3.5deg) rotateZ(-.35deg);
+    transform-style:preserve-3d;
+    background:linear-gradient(180deg,rgba(255,255,255,.72),rgba(251,252,255,.72));
+    border:1px solid rgba(226,229,238,.82);
+    box-shadow:0 22px 50px rgba(28,35,52,.055),inset 0 1px 0 rgba(255,255,255,.95);
+  }
+  .canvas::before{
+    content:"";position:absolute;inset:0;border-radius:inherit;
+    background:linear-gradient(100deg,rgba(255,255,255,.0),rgba(255,255,255,.88) 42%,rgba(255,255,255,.08) 66%);
+    pointer-events:none;opacity:.46;
+  }
+
+  .route-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;overflow:visible;pointer-events:none}
+  .route-base{fill:none;stroke:#d9deea;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+  .route-shadow{fill:none;stroke:#fff;stroke-width:5.5;stroke-linecap:round;stroke-linejoin:round;opacity:.92;vector-effect:non-scaling-stroke}
+  .route-progress{fill:none;stroke:url(#progressGradient);stroke-width:2.45;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;filter:url(#softGlow)}
+  .route-dot{fill:#fff;stroke:#cfd6e4;stroke-width:1.2;vector-effect:non-scaling-stroke}
+
+  .node{
+    --brand:#111827;--rgb:17,24,39;
+    position:absolute;z-index:8;
+    width:11.8cqi;height:11.8cqi;min-width:64px;min-height:64px;max-width:92px;max-height:92px;
+    border-radius:28%;
+    display:grid;place-items:center;
+    background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(248,250,253,.98));
+    border:1px solid rgba(218,223,233,.95);
+    box-shadow:0 18px 30px rgba(27,34,48,.10),0 5px 10px rgba(27,34,48,.045),inset 0 1px 0 #fff;
+    transform:translateZ(20px);
+    transition:transform .55s cubic-bezier(.18,.86,.25,1),box-shadow .55s ease,border-color .45s ease,background .45s ease;
+  }
+  .node::before{
+    content:"";position:absolute;inset:-7px;border-radius:31%;border:1px solid rgba(var(--rgb),0);box-shadow:0 0 0 0 rgba(var(--rgb),0);transition:.5s ease;
+  }
+  .node::after{
+    content:"";position:absolute;left:50%;bottom:-20px;transform:translateX(-50%);width:44%;height:10px;border-radius:50%;background:rgba(29,39,56,.09);filter:blur(7px);opacity:.55;transition:.5s ease;
+  }
+  .node .icon-wrap{
+    width:58%;height:58%;border-radius:30%;display:grid;place-items:center;
+    color:var(--brand);background:rgba(var(--rgb),.075);border:1px solid rgba(var(--rgb),.105);
+    transition:.5s cubic-bezier(.18,.86,.25,1);position:relative;overflow:hidden;
+  }
+  .node .icon-wrap::after{content:"";position:absolute;inset:-30%;background:linear-gradient(110deg,transparent 38%,rgba(255,255,255,.92) 48%,transparent 58%);transform:translateX(-85%);opacity:0}
+  .node svg{width:54%;height:54%;display:block}
+  .node.active{transform:translateZ(40px) translateY(-4px) scale(1.065);border-color:rgba(var(--rgb),.34);background:linear-gradient(180deg,rgba(var(--rgb),.06),#fff 64%);box-shadow:0 28px 45px rgba(27,34,48,.13),0 8px 16px rgba(var(--rgb),.08),0 0 0 4px rgba(var(--rgb),.045),inset 0 1px 0 #fff}
+  .node.active::before{border-color:rgba(var(--rgb),.20);box-shadow:0 0 0 5px rgba(var(--rgb),.045)}
+  .node.active::after{width:58%;opacity:.75}
+  .node.active .icon-wrap{transform:scale(1.06);background:rgba(var(--rgb),.105);box-shadow:0 8px 18px rgba(var(--rgb),.10)}
+  .node.active .icon-wrap::after{opacity:1;animation:shine .75s ease-out}
+  .node.done .success{opacity:1;transform:scale(1)}
+  @keyframes shine{to{transform:translateX(85%)}}
+
+  .success{position:absolute;right:-5px;top:-5px;width:24%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--success);border:2px solid #fff;box-shadow:0 6px 14px rgba(24,166,111,.22);opacity:0;transform:scale(.5);transition:.35s cubic-bezier(.18,.85,.28,1.35)}
+  .success svg{width:56%;height:56%}
+
+  .label{
+    position:absolute;z-index:9;min-width:116px;
+    padding:8px 10px;border-radius:12px;
+    background:rgba(255,255,255,.91);backdrop-filter:blur(12px);
+    border:1px solid rgba(224,228,236,.88);
+    box-shadow:0 10px 24px rgba(26,34,48,.065);
+    transform:translateZ(28px);
+  }
+  .label b{display:block;color:#171c25;font-size:clamp(8.7px,1.47cqi,11.2px);line-height:1.05;font-weight:740;letter-spacing:-.018em;white-space:nowrap}
+  .label span{display:block;margin-top:4px;color:#687386;font-size:clamp(6.9px,1.15cqi,8.7px);line-height:1.05;font-weight:540;white-space:nowrap}
+
+  /* Stage coordinates — spacious, cinematic, easy to scan */
+  #lead{left:8.4%;top:16.5%;--brand:var(--facebook);--rgb:24,119,242}
+  #crm{left:39.8%;top:9.8%;--brand:var(--ghl);--rgb:37,160,111}
+  #call{left:72.4%;top:21.8%;--brand:var(--vapi);--rgb:102,87,239}
+  #book{left:69.4%;top:57.2%;--brand:var(--calendar);--rgb:52,120,246}
+  #save{left:36.7%;top:67.3%;--brand:var(--notes);--rgb:15,157,114}
+  #email{left:8.6%;top:56.4%;--brand:var(--mail);--rgb:225,82,74}
+
+  #lLead{left:6.8%;top:7.7%}
+  #lCrm{left:44%;top:4.4%}
+  #lCall{left:76.2%;top:10.5%}
+  #lBook{left:73.2%;top:70.2%}
+  #lSave{left:35.5%;top:82.5%}
+  #lEmail{left:5.5%;top:69.5%}
+
+  .event-card{
+    position:absolute;z-index:14;
+    width:31%;min-width:160px;
+    padding:12px 13px;
+    border-radius:16px;
+    background:rgba(255,255,255,.95);backdrop-filter:blur(16px);
+    border:1px solid rgba(220,225,234,.94);
+    box-shadow:0 18px 45px rgba(25,33,48,.11),0 4px 12px rgba(25,33,48,.05);
+    opacity:0;transform:translateY(8px) scale(.96);transition:.48s cubic-bezier(.18,.86,.25,1);
+    pointer-events:none;
+  }
+  .event-card.show{opacity:1;transform:translateY(0) scale(1)}
+  .event-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+  .event-title{font-size:clamp(8.1px,1.38cqi,10.4px);font-weight:730;color:#252c38}
+  .event-chip{padding:4px 7px;border-radius:999px;background:#f4f6f9;color:#5d6674;font-size:clamp(6.4px,1.05cqi,8px);font-weight:680;white-space:nowrap}
+  .event-main{display:flex;align-items:center;gap:9px}
+  .avatar{width:32px;height:32px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(145deg,#e7f0ff,#f6f9ff);color:#2a65c7;font-size:10px;font-weight:800;flex:none}
+  .event-copy{min-width:0;flex:1}
+  .event-copy strong{display:block;font-size:clamp(8.4px,1.44cqi,10.8px);line-height:1.05;color:#1d2430;font-weight:730;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .event-copy small{display:block;margin-top:4px;font-size:clamp(6.8px,1.13cqi,8.6px);color:#727d8e;font-weight:540;white-space:nowrap}
+
+  #eventLead{left:19%;top:24%}
+  #eventCrm{left:37%;top:24%}
+  #eventCall{left:52%;top:37%}
+  #eventBook{left:54%;top:54%}
+  #eventSave{left:33%;top:55%}
+  #eventMail{left:16%;top:45%}
+
+  .wave{height:20px;display:flex;align-items:center;gap:3px;color:var(--vapi);margin-top:2px}
+  .wave i{display:block;width:3px;height:7px;border-radius:999px;background:currentColor;opacity:.55;transform-origin:center}
+  #eventCall.show .wave i{animation:wave .68s ease-in-out infinite alternate}
+  #eventCall.show .wave i:nth-child(2){animation-delay:.12s}#eventCall.show .wave i:nth-child(3){animation-delay:.22s}#eventCall.show .wave i:nth-child(4){animation-delay:.05s}#eventCall.show .wave i:nth-child(5){animation-delay:.29s}#eventCall.show .wave i:nth-child(6){animation-delay:.15s}#eventCall.show .wave i:nth-child(7){animation-delay:.35s}
+  @keyframes wave{from{height:5px;opacity:.45}to{height:20px;opacity:1}}
+
+  .calendar-mini{display:flex;align-items:center;gap:8px;margin-top:2px}
+  .date-box{width:34px;border-radius:9px;border:1px solid #dce7fa;overflow:hidden;text-align:center;background:#f9fbff}
+  .date-box b{display:block;background:#3478f6;color:#fff;font-size:7px;padding:3px 0;letter-spacing:.04em}
+  .date-box strong{display:block;padding:5px 0;color:#24436f;font-size:12px}
+  .time-copy{font-size:8.5px;color:#4c596b;line-height:1.4}.time-copy strong{font-size:9px;color:#1f2b3b}
+
+  .save-lines{display:grid;gap:4px;margin-top:2px}.save-lines i{height:4px;border-radius:999px;background:#d9ebe4;transform-origin:left center;transform:scaleX(.28)}
+  #eventSave.show .save-lines i{animation:lineIn .48s ease forwards}#eventSave.show .save-lines i:nth-child(2){animation-delay:.12s}#eventSave.show .save-lines i:nth-child(3){animation-delay:.22s}
+  .save-lines i:nth-child(1){width:92%}.save-lines i:nth-child(2){width:70%}.save-lines i:nth-child(3){width:82%}
+  @keyframes lineIn{to{transform:scaleX(1)}}
+
+  .mail-row{display:flex;align-items:center;gap:9px}.mail-icon{width:31px;height:31px;border-radius:10px;display:grid;place-items:center;background:#fff1f0;color:var(--mail);border:1px solid #f3d9d7}.mail-icon svg{width:16px;height:16px}.mail-copy{font-size:8.4px;color:#687386;line-height:1.35}.mail-copy strong{display:block;color:#1f2733;font-size:9.6px}
+
+  .packet{
+    position:absolute;z-index:18;width:18px;height:8px;border-radius:999px;
+    background:linear-gradient(90deg,rgba(255,255,255,.96),#5c65f2 42%,#1f71f2 100%);
+    box-shadow:0 0 0 3px rgba(255,255,255,.94),0 6px 16px rgba(56,78,209,.24),0 0 16px rgba(81,96,241,.22);
+    opacity:0;transform-origin:center;pointer-events:none;will-change:left,top,transform;
+  }
+  .packet.show{opacity:1}
+
+  .footer-hint{
+    position:absolute;left:5.7%;right:5.7%;bottom:3.8%;z-index:18;display:flex;justify-content:space-between;align-items:center;gap:12px;
+    color:#747e8f;font-size:clamp(6.7px,1.1cqi,8.4px);font-weight:560;
+  }
+  .footer-hint strong{color:#303947;font-weight:700}
+  .powered{display:flex;align-items:center;gap:6px}.powered i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#111827;box-shadow:10px 0 0 #6657ef,20px 0 0 #25a06f;margin-right:20px}
+
+  @media(max-width:620px){
+    body{padding:8px}.hero-visual{width:96vw;border-radius:24px}
+    .canvas{inset:4% 1% 3% 1%;border-radius:20px}.label{min-width:84px;padding:6px 7px;border-radius:9px}.event-card{min-width:0;padding:8px 9px;border-radius:11px}.event-head{margin-bottom:5px}.avatar{width:24px;height:24px;border-radius:8px}.date-box{width:27px}.node{min-width:48px;min-height:48px}.topbar{top:3.9%}.footer-hint{bottom:2.8%}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    .hero-visual::after,.wave i,.save-lines i{animation:none!important}.node,.event-card,.success{transition:none!important}.packet{display:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="hero-visual" id="heroVisual" aria-label="A visual lead automation journey from Facebook lead to CRM, AI call, appointment booking, CRM update and team email notification">
+  <div class="topbar">
+    <div class="tiny-brand"><span class="spark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z"/></svg></span>Lead automation</div>
+    <div class="live">Running automatically</div>
+  </div>
+
+  <div class="scene">
+    <div class="canvas"></div>
+
+    <svg class="route-svg" id="routeSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="progressGradient" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#1877f2"/><stop offset="38%" stop-color="#6657ef"/><stop offset="70%" stop-color="#1aa472"/><stop offset="100%" stop-color="#e1524a"/>
+        </linearGradient>
+        <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="0.7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <path class="route-shadow" d="M14.4 22.4 C26 15 34 14 45.7 16.1 C58 18.3 68.5 24.4 78.4 27.9 C84 30 84.3 41.5 79.2 57.9 C75.6 69.5 61.5 74.2 42.6 73.2 C27.9 72.5 18.6 66.2 14.5 61.4"/>
+      <path id="routePath" class="route-base" d="M14.4 22.4 C26 15 34 14 45.7 16.1 C58 18.3 68.5 24.4 78.4 27.9 C84 30 84.3 41.5 79.2 57.9 C75.6 69.5 61.5 74.2 42.6 73.2 C27.9 72.5 18.6 66.2 14.5 61.4"/>
+      <path id="routeProgress" class="route-progress" d="M14.4 22.4 C26 15 34 14 45.7 16.1 C58 18.3 68.5 24.4 78.4 27.9 C84 30 84.3 41.5 79.2 57.9 C75.6 69.5 61.5 74.2 42.6 73.2 C27.9 72.5 18.6 66.2 14.5 61.4"/>
+      <circle class="route-dot" cx="14.4" cy="22.4" r=".55"/><circle class="route-dot" cx="45.7" cy="16.1" r=".55"/><circle class="route-dot" cx="78.4" cy="27.9" r=".55"/><circle class="route-dot" cx="79.2" cy="57.9" r=".55"/><circle class="route-dot" cx="42.6" cy="73.2" r=".55"/><circle class="route-dot" cx="14.5" cy="61.4" r=".55"/>
+    </svg>
+
+    <div class="node" id="lead">
+      <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.7 21v-8h2.7l.4-3.1h-3.1v-2c0-.9.25-1.5 1.55-1.5H17V3.6c-.3-.04-1.3-.12-2.45-.12-2.42 0-4.08 1.48-4.08 4.2V9.9H7.73V13h2.74v8h3.23Z"/></svg></div>
+      <div class="success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 12 4 4 8-9"/></svg></div>
+    </div>
+    <div class="label" id="lLead"><b>Facebook Lead</b><span>Someone is interested</span></div>
+
+    <div class="node" id="crm">
+      <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="8" cy="12" r="4.6"/><circle cx="16" cy="12" r="4.6"/><path d="M10.5 12h3"/></svg></div>
+      <div class="success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 12 4 4 8-9"/></svg></div>
+    </div>
+    <div class="label" id="lCrm"><b>Lead Saved</b><span>Added to your CRM</span></div>
+
+    <div class="node" id="call">
+      <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.7 4.3 10 8.2l-2 2.9c1.1 3 3.1 5 6.2 6.1l2.7-2 3.1 3.1c-.9 1.7-2.7 2.6-4.7 2.6C8.3 20.9 3 14.2 3 7.5c0-2 1.4-3.1 3.7-3.2Z"/><path d="M14.7 5.1c2.1.4 3.8 2.1 4.2 4.2"/></svg></div>
+      <div class="success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 12 4 4 8-9"/></svg></div>
+    </div>
+    <div class="label" id="lCall"><b>AI Calls Instantly</b><span>Personal follow-up</span></div>
+
+    <div class="node" id="book">
+      <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M8 3v4M16 3v4M4 10h16M8 15l2 2 5-5"/></svg></div>
+      <div class="success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 12 4 4 8-9"/></svg></div>
+    </div>
+    <div class="label" id="lBook"><b>Appointment Booked</b><span>Calendar confirmed</span></div>
+
+    <div class="node" id="save">
+      <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 4h12v16H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></div>
+      <div class="success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 12 4 4 8-9"/></svg></div>
+    </div>
+    <div class="label" id="lSave"><b>Details Saved</b><span>Notes update automatically</span></div>
+
+    <div class="node" id="email">
+      <div class="icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg></div>
+      <div class="success"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m6 12 4 4 8-9"/></svg></div>
+    </div>
+    <div class="label" id="lEmail"><b>Team Notified</b><span>Email sent automatically</span></div>
+
+    <div class="event-card" id="eventLead">
+      <div class="event-head"><span class="event-title">New lead received</span><span class="event-chip">Facebook</span></div>
+      <div class="event-main"><span class="avatar">SM</span><span class="event-copy"><strong>Sarah Mitchell</strong><small>Interested in a consultation</small></span></div>
+    </div>
+
+    <div class="event-card" id="eventCrm">
+      <div class="event-head"><span class="event-title">Contact added</span><span class="event-chip">CRM</span></div>
+      <div class="event-main"><span class="avatar" style="background:#eaf8f1;color:#14825e">SM</span><span class="event-copy"><strong>Sarah Mitchell</strong><small>Phone + email saved</small></span></div>
+    </div>
+
+    <div class="event-card" id="eventCall">
+      <div class="event-head"><span class="event-title">AI call in progress</span><span class="event-chip">00:14</span></div>
+      <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span style="margin-left:7px;font-size:8px;color:#677286;font-weight:650">Speaking naturally…</span></div>
+    </div>
+
+    <div class="event-card" id="eventBook">
+      <div class="event-head"><span class="event-title">Appointment confirmed</span><span class="event-chip">Booked</span></div>
+      <div class="calendar-mini"><div class="date-box"><b>SEP</b><strong>12</strong></div><div class="time-copy"><strong>Consultation call</strong><br>Thursday · 2:30 PM</div></div>
+    </div>
+
+    <div class="event-card" id="eventSave">
+      <div class="event-head"><span class="event-title">CRM updated</span><span class="event-chip">Saved</span></div>
+      <div class="save-lines"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="event-card" id="eventMail">
+      <div class="event-head"><span class="event-title">Team notified</span><span class="event-chip">Sent</span></div>
+      <div class="mail-row"><div class="mail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg></div><div class="mail-copy"><strong>New appointment booked</strong>Sales team has the full context.</div></div>
+    </div>
+
+    <div class="packet" id="packet"></div>
+  </div>
+
+  <div class="footer-hint"><span><strong>From new lead to booked call — automatically.</strong></span><span class="powered"><i></i>Facebook · CRM · AI · Calendar · Email</span></div>
+</div>
+
+<script>
+(() => {
+  const root = document.getElementById('heroVisual');
+  const scene = root.querySelector('.scene');
+  const svg = document.getElementById('routeSvg');
+  const route = document.getElementById('routePath');
+  const progress = document.getElementById('routeProgress');
+  const packet = document.getElementById('packet');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const stages = [
+    {node:'lead', event:'eventLead', t:0.00, hold:950},
+    {node:'crm', event:'eventCrm', t:0.205, hold:900},
+    {node:'call', event:'eventCall', t:0.415, hold:1450},
+    {node:'book', event:'eventBook', t:0.635, hold:1050},
+    {node:'save', event:'eventSave', t:0.815, hold:900},
+    {node:'email', event:'eventMail', t:1.00, hold:1200}
+  ];
+
+  const nodes = stages.map(s=>document.getElementById(s.node));
+  const events = stages.map(s=>document.getElementById(s.event));
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+  function reset(){
+    nodes.forEach(n=>n.classList.remove('active','done'));
+    events.forEach(e=>e.classList.remove('show'));
+    packet.classList.remove('show');
+    const len=route.getTotalLength();
+    progress.style.strokeDasharray=`${len} ${len}`;
+    progress.style.strokeDashoffset=`${len}`;
+  }
+
+  function activate(i){
+    nodes.forEach((n,idx)=>{
+      n.classList.toggle('active',idx===i);
+      if(idx<i) n.classList.add('done');
+    });
+    events.forEach((e,idx)=>e.classList.toggle('show',idx===i));
+  }
+
+  function pointAtFraction(frac){
+    const len=route.getTotalLength();
+    const p=route.getPointAtLength(len*frac);
+    const p2=route.getPointAtLength(Math.min(len,len*frac+.6));
+    const p1=route.getPointAtLength(Math.max(0,len*frac-.6));
+    const a=Math.atan2(p2.y-p1.y,p2.x-p1.x)*180/Math.PI;
+    const svgRect=svg.getBoundingClientRect();
+    const sceneRect=scene.getBoundingClientRect();
+    const x=(p.x/100)*svgRect.width + (svgRect.left-sceneRect.left);
+    const y=(p.y/100)*svgRect.height + (svgRect.top-sceneRect.top);
+    return {x,y,a};
+  }
+
+  function move(from,to,duration){
+    if(reduce) return Promise.resolve();
+    packet.classList.add('show');
+    const len=route.getTotalLength();
+    const start=performance.now();
+    return new Promise(resolve=>{
+      function frame(now){
+        const raw=Math.min(1,(now-start)/duration);
+        const eased=raw<.5?4*raw*raw*raw:1-Math.pow(-2*raw+2,3)/2;
+        const f=from+(to-from)*eased;
+        const pt=pointAtFraction(f);
+        packet.style.left=`${pt.x-9}px`;
+        packet.style.top=`${pt.y-4}px`;
+        packet.style.transform=`rotate(${pt.a}deg)`;
+        progress.style.strokeDashoffset=`${len*(1-f)}`;
+        if(raw<1) requestAnimationFrame(frame); else resolve();
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  async function play(){
+    if(reduce){
+      reset();
+      nodes.forEach(n=>n.classList.add('done'));
+      return;
+    }
+    while(true){
+      reset();
+      await sleep(650);
+      activate(0);
+      const first=pointAtFraction(0);packet.style.left=`${first.x-9}px`;packet.style.top=`${first.y-4}px`;
+      await sleep(stages[0].hold);
+      for(let i=1;i<stages.length;i++){
+        events[i-1].classList.remove('show');
+        await move(stages[i-1].t,stages[i].t,780);
+        activate(i);
+        await sleep(stages[i].hold);
+      }
+      nodes[nodes.length-1].classList.add('done');
+      packet.classList.remove('show');
+      await sleep(1600);
+      events.forEach(e=>e.classList.remove('show'));
+      nodes.forEach((n,idx)=>setTimeout(()=>n.classList.remove('active','done'),idx*45));
+      await sleep(700);
+    }
+  }
+
+  requestAnimationFrame(()=>{
+    reset();
+    play();
+  });
+})();
+</script>
+</body>
+</html>

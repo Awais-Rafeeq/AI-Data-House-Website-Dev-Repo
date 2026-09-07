@@ -87,15 +87,14 @@ const Inspector: React.FC<InspectorProps> = (p) => (
           <button
             type="button"
             onClick={p.onPickImage}
-            disabled={!p.configured}
-            className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-7 text-center hover:border-emerald-300 hover:bg-emerald-50/30 disabled:opacity-60 disabled:hover:border-slate-200 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            className="w-full rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-7 text-center hover:border-emerald-300 hover:bg-emerald-50/30 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             <span className="mx-auto mb-2 grid h-9 w-9 place-items-center rounded-lg bg-white border border-slate-200 text-slate-400">
               <Upload size={16} aria-hidden="true" />
             </span>
             <span className="block font-black text-slate-700 text-xs">Choose an image from your computer</span>
             <span className="block text-[11px] font-medium text-slate-400 mt-0.5">
-              {p.configured ? 'Uploads as soon as you pick it' : 'Unavailable until the store is configured'}
+              {p.configured ? 'Uploads as soon as you pick it' : 'Needs Supabase credentials before upload can finish'}
             </span>
           </button>
         )}
