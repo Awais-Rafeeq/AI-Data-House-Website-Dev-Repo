@@ -14,9 +14,11 @@ dist-ssr
 # Environment secrets and local-only config
 .env
 .env.*
-!.env.example
-!.env.*.example
 *.local
+
+# Local notes and generated helper scripts
+docs/
+scripts/
 
 # Local tool state
 .serena/
@@ -26,12 +28,6 @@ supabase/.branches/
 supabase/.temp/
 supabase/.env
 supabase/.env.*
-!supabase/.env.example
-!supabase/.env.*.example
-
-# One-off local smoke scripts can use real backend credentials through .env.local.
-scripts/smoke-*.mjs
-scripts/smoke-*.ts
 
 # Editor directories and files
 .vscode/*

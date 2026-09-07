@@ -8,6 +8,7 @@
     "build": "tsc && vite build && tsx scripts/prerender.ts",
     "build:novite": "vite build && tsx scripts/prerender.ts",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
     "test": "tsx scripts/test-blog-sanitizer.ts && tsx scripts/test-html-sanitizer.ts"
   },
   "dependencies": {

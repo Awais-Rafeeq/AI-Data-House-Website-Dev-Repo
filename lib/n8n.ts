@@ -2,7 +2,7 @@
 import { trackEvent, n8nActionToGaEvent } from './analytics';
 
 const WEBHOOK_CONFIG = {
-  endpoint: 'https://n8n.aidatahouse.cloud/webhook/website-events',
+  endpoint: import.meta.env.VITE_N8N_WEBHOOK_URL || '',
   securityCode: '786',
   timeout: 10000,
   retryAttempts: 2
@@ -75,6 +75,10 @@ export const sendToN8n = async (action: string, data: any, options: any = {}) =>
   console.log(`[n8n] Triggering: ${action}`, payload);
 
   try {
+    if (!WEBHOOK_CONFIG.endpoint) {
+      throw new Error('N8N webhook endpoint is not configured');
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_CONFIG.timeout);
 

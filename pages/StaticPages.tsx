@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowRight, CheckCircle, Star, Calendar, MapPin, ShieldCheck, Clock, Mail, Users, Cpu, Search,
+  ArrowRight, CheckCircle, Star, Calendar, MapPin, ShieldCheck, Clock, Mail, Users, Cpu, Search, ChevronDown,
 } from 'lucide-react';
 import BookingFlow from '../components/BookingFlow';
 import { INDUSTRY_NAV } from '../data/industries';
 import { sendToN8n, ACTIONS } from '../lib/n8n';
 import { useSeo, ORG_JSONLD, faqJsonLd, breadcrumbJsonLd } from '../lib/seo';
 import { initialsOf } from '../components/home/teamData';
+import './contact.css';
 
 const Eyebrow = ({ children }: { children: React.ReactNode }) => (
   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 mb-4">{children}</p>
@@ -286,6 +287,7 @@ export const AboutPage = () => {
 export const ContactPage = () => {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   useSeo({
     title: 'Book a Free AI Audit | AI Data House',
@@ -305,10 +307,10 @@ export const ContactPage = () => {
   ];
 
   const trust = [
-    { v: '4.9★', l: 'on Clutch' },
-    { v: '500+', l: 'automations built' },
-    { v: '<4hr', l: 'response time' },
-    { v: '4 yrs', l: 'with US businesses' },
+    { v: '4.9★', l: 'on Clutch', i: <Star /> },
+    { v: '500+', l: 'automations built', i: <Cpu /> },
+    { v: '<4hr', l: 'response time', i: <Clock /> },
+    { v: '4 yrs', l: 'with US businesses', i: <Users /> },
   ];
 
   const faqs = [
@@ -327,23 +329,24 @@ export const ContactPage = () => {
   };
 
   return (
-    <div className="pt-32 pb-24 bg-white">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl md:text-6xl font-black mb-5 leading-tight tracking-tight text-slate-900">Get a Free Map of Your <span className="text-emerald-600">Automation Opportunity</span></h1>
+    <div className="contact-page">
+      <div className="contact-shell">
+        <div className="contact-hero">
+          <p className="contact-eyebrow">Free 30-minute AI audit</p>
+          <h1 className="text-4xl md:text-6xl font-black mb-5 leading-tight tracking-tight text-slate-900"><span>Get a Free Map of Your</span> <span className="text-emerald-600">Automation Opportunity</span></h1>
           <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto">30 minutes. No pitch. No sales deck. You describe your operations, we tell you what to automate first, what it costs, and what changes. Whether you work with us afterward or not, the audit is genuinely useful.</p>
         </div>
 
         <BookingFlow />
 
         {/* What to expect */}
-        <div className="mt-20">
+        <div className="mt-20 contact-expect">
           <p className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-600 mb-8 text-center">What To Expect</p>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-6 contact-process-grid">
             {steps.map((s, i) => (
               <div key={i} className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
                 <div className="w-12 h-12 bg-emerald-600 text-white rounded-xl flex items-center justify-center mb-5">{s.i}</div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Step {i + 1}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Step {String(i + 1).padStart(2, '0')}</p>
                 <h3 className="text-lg font-black text-slate-900 mb-2">{s.t}</h3>
                 <p className="text-slate-500 font-medium text-sm">{s.d}</p>
               </div>
@@ -352,9 +355,10 @@ export const ContactPage = () => {
         </div>
 
         {/* Trust strip */}
-        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4 contact-trust-strip">
           {trust.map((t) => (
             <div key={t.l} className="bg-slate-900 text-white rounded-2xl p-6 text-center">
+              <span className="contact-trust-icon" aria-hidden="true">{t.i}</span>
               <p className="text-2xl font-black text-emerald-400">{t.v}</p>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">{t.l}</p>
             </div>
@@ -362,7 +366,7 @@ export const ContactPage = () => {
         </div>
 
         {/* Who this is for */}
-        <div className="mt-16 bg-slate-50 rounded-[2.5rem] border border-slate-100 p-10">
+        <div className="mt-16 bg-slate-50 rounded-[2.5rem] border border-slate-100 p-10 contact-fit">
           <h3 className="text-xl font-black text-slate-900 mb-6">The audit works best if you:</h3>
           <ul className="space-y-3">
             {[
@@ -377,7 +381,7 @@ export const ContactPage = () => {
         </div>
 
         {/* Not ready */}
-        <div className="mt-12 grid md:grid-cols-2 gap-6">
+        <div className="mt-12 grid md:grid-cols-2 gap-6 contact-alternatives">
           <div className="bg-emerald-600 text-white rounded-[2rem] p-8">
             <h3 className="text-lg font-black mb-2">Not ready to book?</h3>
             <p className="text-emerald-50 font-medium text-sm mb-5">Get the Transformation Playbook every Tuesday. One real automation case, tools, steps, and what it cost.</p>
@@ -398,14 +402,29 @@ export const ContactPage = () => {
         </div>
 
         {/* FAQ */}
-        <div className="mt-16 max-w-2xl mx-auto">
+        <div className="mt-16 max-w-2xl mx-auto contact-faq">
           <div className="space-y-4">
-            {faqs.map((f, i) => (
-              <div key={i} className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-                <p className="font-black text-slate-900 mb-1">{f.q}</p>
-                <p className="text-slate-500 font-medium text-sm">{f.a}</p>
-              </div>
-            ))}
+            {faqs.map((f, i) => {
+              const isOpen = openFaq === i;
+              const panelId = `contact-faq-panel-${i}`;
+              return (
+                <div key={i} className={`contact-faq-item ${isOpen ? 'is-open' : ''}`}>
+                  <button
+                    type="button"
+                    className="contact-faq-question"
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                    onClick={() => setOpenFaq(isOpen ? null : i)}
+                  >
+                    <span>{f.q}</span>
+                    <ChevronDown size={19} aria-hidden="true" />
+                  </button>
+                  <div id={panelId} className="contact-faq-answer" aria-hidden={!isOpen}>
+                    <div><p>{f.a}</p></div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
